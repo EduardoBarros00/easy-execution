@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   ListChecks,
   Activity,
+  CalendarDays,
+  FileText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DentalMark } from "@/components/dental-mark";
@@ -39,8 +41,10 @@ const groups = [
     label: "Operação",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Agenda", url: "/agenda", icon: CalendarDays },
       { title: "Ordens de Serviço", url: "/os" as const, icon: ClipboardList },
       { title: "Pacientes", url: "/pacientes", icon: UserRound },
+      { title: "Prontuários", url: "/prontuarios", icon: FileText },
     ],
   },
   {
