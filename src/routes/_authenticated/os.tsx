@@ -51,6 +51,7 @@ type OsExpense = { id?: string; description: string; amount: number };
 
 type OsStatus = "pending" | "in_progress" | "delivered" | "cancelled";
 type ClientMini = { id: string; dentist_name: string; clinic_name: string | null; contractor_name: string | null };
+type PatientMini = { id: string; full_name: string };
 
 const STATUS_OPTIONS: { value: OsStatus; label: string }[] = [
   { value: "pending", label: "Pendente" },
@@ -76,6 +77,7 @@ function OS() {
   const [expectedAt, setExpectedAt] = useState<string>("");
   const [contractorName, setContractorName] = useState("");
   const [dentistName, setDentistName] = useState("");
+  const [patientName, setPatientName] = useState("");
   const [cityId, setCityId] = useState<string>("");
   const [expenses, setExpenses] = useState<OsExpense[]>([]);
   const [newExpDesc, setNewExpDesc] = useState("");
@@ -114,6 +116,15 @@ function OS() {
       const { data, error } = await supabase.from("clients").select("id, dentist_name, clinic_name, contractor_name").order("contractor_name");
       if (error) throw error;
       return data as ClientMini[];
+    },
+  });
+
+  const { data: patients = [] } = useQuery({
+    queryKey: ["patients-mini"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("patients").select("id, full_name").order("full_name");
+      if (error) throw error;
+      return data as PatientMini[];
     },
   });
 
@@ -173,6 +184,7 @@ function OS() {
     setClientId("");
     setContractorName("");
     setDentistName("");
+    setPatientName("");
     setTechId("");
     setTypeId("");
     setCityId("");
@@ -191,6 +203,7 @@ function OS() {
     setClientId(o.client_id ?? "");
     setContractorName(o.contractor_name || "");
     setDentistName(o.dentist_name || "");
+    setPatientName(o.patient_name);
     if (!o.contractor_name || !o.dentist_name) fillClientNames(clients.find((client) => client.id === o.client_id));
     setTechId(o.technician_id ?? "");
     setTypeId(o.prosthesis_type_id ?? "");
@@ -220,8 +233,11 @@ function OS() {
     if (!healthUnit.trim()) {
       return toast.error("Unidade Básica de Saúde (UBS) é obrigatória");
     }
+    if (!patientName) {
+      return toast.error("Selecione um paciente cadastrado");
+    }
     const payload = {
-      patient_name: (fd.get("patient_name") as string) || "",
+      patient_name: patientName,
       contractor_name: contractorName || null,
       dentist_name: dentistName || null,
       client_id: clientId || null,
@@ -373,7 +389,17 @@ function OS() {
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Paciente *</Label>
-              <Input name="patient_name" required defaultValue={editing?.patient_name ?? ""} />
+              <Select value={patientName} onValueChange={setPatientName}>
+                <SelectTrigger><SelectValue placeholder="Selecione o paciente cadastrado…" /></SelectTrigger>
+                <SelectContent>
+                  {editing && patientName && !patients.some((patient) => patient.full_name === patientName) && (
+                    <SelectItem value={patientName}>{patientName} (não cadastrado)</SelectItem>
+                  )}
+                  {patients.map((patient) => (
+                    <SelectItem key={patient.id} value={patient.full_name}>{patient.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="sm:col-span-2 mt-3 flex items-center gap-3">
