@@ -115,19 +115,19 @@ function LoginPage() {
       return toast.error(error.message);
     }
 
-    // Create new city for this user if requested
+    // Create new city for this user if requested (via controlled server-side routine)
     if (showNewCity && signData.user) {
-      const { data: created, error: cErr } = await supabase
-        .from("cities")
-        .insert({ owner_id: signData.user.id, name: newCityName.trim(), uf: newCityUf.trim().toUpperCase() })
-        .select("id")
-        .single();
+      const { data: created, error: cErr } = await (supabase as any).rpc("bootstrap_city", {
+        _name: newCityName.trim(),
+        _uf: newCityUf.trim().toUpperCase(),
+      });
       if (cErr) {
         toast.error("Conta criada, mas falha ao salvar cidade: " + cErr.message);
       } else if (created) {
-        finalCityId = created.id;
+        finalCityId = created as string;
       }
     }
+
 
     // Save city to profile
     if (signData.user && finalCityId) {
