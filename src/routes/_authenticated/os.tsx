@@ -128,6 +128,15 @@ function OS() {
     },
   });
 
+  const { data: dentists = [] } = useQuery({
+    queryKey: ["dentists-mini"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("dentists").select("id, full_name").order("full_name");
+      if (error) throw error;
+      return data as { id: string; full_name: string }[];
+    },
+  });
+
   const fillClientNames = (client: ClientMini | undefined) => {
     setContractorName(client?.contractor_name || client?.dentist_name || "");
     setDentistName(client?.dentist_name || "");
@@ -384,7 +393,17 @@ function OS() {
 
             <div className="space-y-1.5">
               <Label>Nome da dentista</Label>
-              <Input value={dentistName} onChange={(e) => setDentistName(e.target.value)} placeholder="Digite o nome da dentista" />
+              <Select value={dentistName} onValueChange={setDentistName}>
+                <SelectTrigger><SelectValue placeholder="Selecione a dentista cadastrada…" /></SelectTrigger>
+                <SelectContent>
+                  {editing && dentistName && !dentists.some((dentist) => dentist.full_name === dentistName) && (
+                    <SelectItem value={dentistName}>{dentistName} (não cadastrada)</SelectItem>
+                  )}
+                  {dentists.map((dentist) => (
+                    <SelectItem key={dentist.id} value={dentist.full_name}>{dentist.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
