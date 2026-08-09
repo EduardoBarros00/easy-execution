@@ -334,11 +334,19 @@ function OS() {
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
         <DialogContent className="max-h-[92vh] w-[96vw] max-w-4xl overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>{editing ? `Editar ${editing.code}` : "Nova Ordem de Serviço"}</DialogTitle>
-            <DialogDescription>Preencha os dados da OS</DialogDescription>
+          <DialogHeader className="border-b border-border/60 pb-4">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+              <span className="h-2 w-2 rounded-full bg-primary" /> Fluxo laboratorial
+            </div>
+            <DialogTitle className="text-xl tracking-[-0.03em]">{editing ? `Editar ${editing.code}` : "Nova Ordem de Serviço"}</DialogTitle>
+            <DialogDescription>Organize paciente, atendimento, produção e custos da OS.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <form onSubmit={onSubmit} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="sm:col-span-2 mt-1 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
+              <div><p className="text-sm font-semibold">Paciente e contratante</p><p className="text-[11px] text-muted-foreground">Identificação principal da ordem</p></div>
+              <div className="h-px flex-1 bg-border/65" />
+            </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Contratante *</Label>
               <Select value={clientId} onValueChange={handleClientChange}>
@@ -366,6 +374,12 @@ function OS() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Paciente *</Label>
               <Input name="patient_name" required defaultValue={editing?.patient_name ?? ""} />
+            </div>
+
+            <div className="sm:col-span-2 mt-3 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
+              <div><p className="text-sm font-semibold">Serviço odontológico</p><p className="text-[11px] text-muted-foreground">Profissional, atendimento e unidade de saúde</p></div>
+              <div className="h-px flex-1 bg-border/65" />
             </div>
 
             <div className="space-y-1.5">
@@ -422,6 +436,12 @@ function OS() {
               )}
             </div>
 
+            <div className="sm:col-span-2 mt-3 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
+              <div><p className="text-sm font-semibold">Produção e prazos</p><p className="text-[11px] text-muted-foreground">Status, datas e etapas do laboratório</p></div>
+              <div className="h-px flex-1 bg-border/65" />
+            </div>
+
             <div className="space-y-1.5">
               <Label>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as OsStatus)}>
@@ -445,8 +465,8 @@ function OS() {
               <Input type="date" name="delivered_at" defaultValue={editing?.delivered_at ?? ""} />
             </div>
 
-            <div className="sm:col-span-2 mt-2 rounded-md border p-3">
-              <div className="mb-2 text-sm font-medium">Etapas do atendimento</div>
+            <div className="sm:col-span-2 mt-2 rounded-2xl border border-primary/12 bg-primary/[0.025] p-4">
+              <div className="mb-3 flex items-center justify-between"><div><p className="text-sm font-semibold">Etapas do atendimento</p><p className="text-[11px] text-muted-foreground">Linha do tempo prevista da produção</p></div><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">Produção</span></div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>1. Moldagem</Label>
@@ -469,6 +489,12 @@ function OS() {
             </div>
 
 
+            <div className="sm:col-span-2 mt-3 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
+              <div><p className="text-sm font-semibold">Valores e gastos</p><p className="text-[11px] text-muted-foreground">Controle financeiro desta ordem de serviço</p></div>
+              <div className="h-px flex-1 bg-border/65" />
+            </div>
+
             <div className="space-y-1.5">
               <Label>Cidade</Label>
               <Select value={cityId} onValueChange={setCityId}>
@@ -487,7 +513,7 @@ function OS() {
               <Input type="number" step="0.01" name="cost" defaultValue={String(editing?.cost ?? 0)} />
             </div>
 
-            <div className="sm:col-span-2 mt-2 rounded-md border p-3">
+            <div className="sm:col-span-2 mt-2 rounded-2xl border border-border/70 bg-muted/20 p-4">
               <div className="mb-2 flex items-center justify-between text-sm font-medium">
                 <span>Gastos adicionais</span>
                 <span className="text-xs text-muted-foreground">
@@ -516,6 +542,12 @@ function OS() {
               )}
             </div>
 
+            <div className="sm:col-span-2 mt-3 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">05</span>
+              <div><p className="text-sm font-semibold">Observações</p><p className="text-[11px] text-muted-foreground">Informações complementares da OS</p></div>
+              <div className="h-px flex-1 bg-border/65" />
+            </div>
+
             <div className="sm:col-span-2 space-y-1.5">
               <Label>Observações</Label>
               <Textarea name="notes" rows={3} defaultValue={editing?.notes ?? ""} />
@@ -527,12 +559,16 @@ function OS() {
         </DialogContent>
       </Dialog>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <div className="border-b p-3">
-            <div className="relative max-w-sm">
+          <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/15 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Ordens cadastradas</p>
+              <p className="text-xs text-muted-foreground">Consulte e acompanhe a produção do laboratório</p>
+            </div>
+            <div className="relative w-full sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código ou paciente…" className="pl-9" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código ou paciente…" className="bg-background pl-9" />
             </div>
           </div>
           <div className="overflow-x-auto">
