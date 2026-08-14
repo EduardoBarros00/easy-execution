@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/status-badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/_authenticated/os")({
   head: () => ({ meta: [{ title: "Ordens de Serviço — LabProt" }] }),
@@ -62,6 +63,7 @@ const STATUS_OPTIONS: { value: OsStatus; label: string }[] = [
 
 function OS() {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceOrder | null>(null);
@@ -110,7 +112,7 @@ function OS() {
     },
   });
 
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [], isLoading: clientsLoading, isError: clientsError } = useQuery({
     queryKey: ["clients-mini"],
     queryFn: async () => {
       const { data, error } = await supabase.from("clients").select("id, dentist_name, clinic_name, contractor_name").order("contractor_name");
@@ -239,6 +241,9 @@ function OS() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const s = (k: string) => (fd.get(k) as string) || null;
+    if (!clientId) {
+      return toast.error("Selecione um contratante cadastrado");
+    }
     if (!healthUnit.trim()) {
       return toast.error("Unidade Básica de Saúde (UBS) é obrigatória");
     }
@@ -339,6 +344,9 @@ function OS() {
     <div className="min-w-[190px] font-medium text-foreground">{contractorLabel(order)}</div>
   );
 
+  const brl = (value: number) =>
+    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
   const ubsHistory = Array.from(
     new Set(
       orders
@@ -358,7 +366,7 @@ function OS() {
       />
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-        <DialogContent className="max-h-[92vh] w-[96vw] max-w-4xl overflow-y-auto p-4 sm:p-6">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-none overflow-y-auto p-4 sm:h-auto sm:max-h-[92vh] sm:w-[96vw] sm:max-w-4xl sm:p-6">
           <DialogHeader className="border-b border-border/60 pb-4">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
               <span className="h-2 w-2 rounded-full bg-primary" /> Fluxo laboratorial
@@ -374,21 +382,67 @@ function OS() {
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Contratante *</Label>
-              <Select value={clientId} onValueChange={handleClientChange}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.contractor_name || c.dentist_name}
-                    </SelectItem>
+              {isMobile ? (
+                <select
+                  aria-label="Contratante"
+                  className="flex h-11 w-full rounded-xl border border-input bg-background px-3.5 text-base shadow-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  value={clientId}
+                  onChange={(event) => handleClientChange(event.target.value)}
+                  disabled={clientsLoading || clientsError || clients.length === 0}
+                >
+                  <option value="">
+                    {clientsLoading
+                      ? "Carregando contratantes…"
+                      : clientsError
+                        ? "Não foi possível carregar"
+                        : clients.length === 0
+                          ? "Nenhum contratante cadastrado"
+                          : "Selecione o contratante"}
+                  </option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.contractor_name || client.dentist_name}
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Nome do contratante</Label>
-              <Input value={contractorName} onChange={(e) => setContractorName(e.target.value)} placeholder="Digite o contratante" />
+                </select>
+              ) : (
+                <Select
+                  value={clientId}
+                  onValueChange={handleClientChange}
+                  disabled={clientsLoading || clientsError || clients.length === 0}
+                >
+                  <SelectTrigger aria-label="Contratante">
+                    <SelectValue
+                      placeholder={
+                        clientsLoading
+                          ? "Carregando contratantes…"
+                          : clientsError
+                            ? "Não foi possível carregar"
+                            : clients.length === 0
+                              ? "Nenhum contratante cadastrado"
+                              : "Selecione…"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.contractor_name || client.dentist_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {clientsError && (
+                <p className="text-xs font-medium text-destructive">
+                  Não foi possível carregar os contratantes. Verifique a internet e tente novamente.
+                </p>
+              )}
+              {!clientsLoading && !clientsError && clients.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Cadastre um contratante antes de criar a Ordem de Serviço.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -597,8 +651,8 @@ function OS() {
               <Label>Observações</Label>
               <Textarea name="notes" rows={3} defaultValue={editing?.notes ?? ""} />
             </div>
-            <DialogFooter className="sm:col-span-2">
-              <Button type="submit">{editing ? "Salvar" : "Cadastrar"}</Button>
+            <DialogFooter className="sticky bottom-0 z-10 -mx-4 border-t border-border/70 bg-background/95 px-4 py-3 backdrop-blur sm:static sm:col-span-2 sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto">{editing ? "Salvar" : "Cadastrar"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -616,7 +670,68 @@ function OS() {
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por código ou paciente…" className="bg-background pl-9" />
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="divide-y divide-border/70 md:hidden">
+            {filtered.map((order) => {
+              const city = cities.find((item) => item.id === order.city_id);
+              const additionalExpenses = expensesByOs[order.id] ?? 0;
+              const totalCost = Number(order.cost ?? 0) + additionalExpenses;
+              const profit = Number(order.price) - totalCost;
+
+              return (
+                <article key={order.id} className="space-y-4 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs text-muted-foreground">{order.code}</p>
+                      <p className="mt-1 truncate text-base font-semibold">{order.patient_name}</p>
+                    </div>
+                    <StatusBadge status={order.status} />
+                  </div>
+
+                  <dl className="grid grid-cols-1 gap-2 text-sm">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Contratante</dt>
+                      <dd className="font-medium">{contractorLabel(order)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Cidade</dt>
+                      <dd>{city ? `${city.name}/${city.uf}` : "—"}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-3 text-center">
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">Valor</p>
+                      <p className="text-xs font-semibold">{brl(Number(order.price))}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">Gastos</p>
+                      <p className="text-xs font-semibold text-destructive">{brl(totalCost)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">Lucro</p>
+                      <p className={`text-xs font-semibold ${profit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {brl(profit)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" className="h-11" onClick={() => openEdit(order)}>
+                      <Edit className="mr-2 h-4 w-4" /> Editar
+                    </Button>
+                    <Button variant="outline" className="h-11 text-destructive" onClick={() => remove(order.id)}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+            {!isLoading && filtered.length === 0 && (
+              <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma OS cadastrada</p>
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -637,7 +752,6 @@ function OS() {
                 const additionalExpenses = expensesByOs[o.id] ?? 0;
                 const totalCost = Number(o.cost ?? 0) + additionalExpenses;
                 const profit = Number(o.price) - totalCost;
-                const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
                 return (
                 <TableRow key={o.id}>
                   <TableCell className="font-mono text-xs">{o.code}</TableCell>
@@ -650,8 +764,8 @@ function OS() {
                   <TableCell className={`text-right font-medium ${profit >= 0 ? "text-emerald-600" : "text-destructive"}`}>{brl(profit)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(o)}><Edit className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(o.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button aria-label={`Editar ${o.code}`} size="icon" variant="ghost" onClick={() => openEdit(o)}><Edit className="h-4 w-4" /></Button>
+                      <Button aria-label={`Excluir ${o.code}`} size="icon" variant="ghost" onClick={() => remove(o.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>

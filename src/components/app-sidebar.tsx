@@ -82,7 +82,7 @@ const groups = [
 const adminItem = { title: "Usuários & Sessões", url: "/usuarios", icon: ShieldCheck };
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -108,7 +108,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarHeader className="border-b border-sidebar-border/70 px-2 py-2.5">
+      <SidebarHeader className="border-b border-sidebar-border/70 px-2 py-2.5 pr-12 md:pr-2">
         <div className="flex items-center gap-2.5 rounded-2xl px-1.5 py-1.5">
           <DentalMark className="h-10 w-10 shrink-0" />
           {!collapsed && (
@@ -141,7 +141,13 @@ export function AppSidebar() {
                         tooltip={item.title}
                         className="h-10 rounded-xl px-2.5 font-medium transition-all data-[active=true]:bg-sidebar-primary/12 data-[active=true]:text-sidebar-primary data-[active=true]:shadow-[inset_3px_0_0_var(--color-sidebar-primary)] hover:bg-sidebar-accent/75"
                       >
-                        <Link to={item.url} className="flex items-center gap-2.5">
+                        <Link
+                          to={item.url}
+                          className="flex items-center gap-2.5"
+                          onClick={() => {
+                            if (isMobile) setOpenMobile(false);
+                          }}
+                        >
                           <item.icon className="h-[17px] w-[17px] shrink-0" />
                           {!collapsed && <span className="truncate">{item.title}</span>}
                         </Link>
