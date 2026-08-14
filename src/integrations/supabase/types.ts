@@ -418,6 +418,7 @@ export type Database = {
       prosthesis_types: {
         Row: {
           avg_days: number | null
+          category: string | null
           city_id: string | null
           created_at: string
           default_commission_pct: number | null
@@ -426,9 +427,12 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          service_code: string | null
+          source: string | null
         }
         Insert: {
           avg_days?: number | null
+          category?: string | null
           city_id?: string | null
           created_at?: string
           default_commission_pct?: number | null
@@ -437,9 +441,12 @@ export type Database = {
           id?: string
           name: string
           owner_id: string
+          service_code?: string | null
+          source?: string | null
         }
         Update: {
           avg_days?: number | null
+          category?: string | null
           city_id?: string | null
           created_at?: string
           default_commission_pct?: number | null
@@ -448,6 +455,8 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
+          service_code?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -892,6 +901,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_user_to_city: {
+        Args: { _city_id: string; _user_id: string }
+        Returns: undefined
+      }
+      bootstrap_city: { Args: { _name: string; _uf: string }; Returns: string }
       can_access_city: { Args: { _city_id: string }; Returns: boolean }
       get_user_city_id: { Args: never; Returns: string }
       has_role: {
@@ -902,6 +916,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      set_my_city: { Args: { _city_id: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
