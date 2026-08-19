@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Trash2, Edit, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { waLink } from "@/lib/format";
+import { fmtShortDate, waLink } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/pacientes")({
   head: () => ({ meta: [{ title: "Pacientes — LabProt" }] }),
@@ -145,8 +145,8 @@ function Pacientes() {
               {filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.full_name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.document || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.birth_date || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.document && p.document !== p.birth_date ? p.document : "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{fmtShortDate(p.birth_date)}</TableCell>
                   <TableCell className="text-muted-foreground">{p.phone || p.email || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

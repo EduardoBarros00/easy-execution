@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedBoletinsRouteImport } from './routes/_authenticated/boletins'
 import { Route as AuthenticatedCidadesRouteImport } from './routes/_authenticated/cidades'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
@@ -23,6 +24,7 @@ import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authentic
 import { Route as AuthenticatedFornecedoresRouteImport } from './routes/_authenticated/fornecedores'
 import { Route as AuthenticatedOsRouteImport } from './routes/_authenticated/os'
 import { Route as AuthenticatedPacientesRouteImport } from './routes/_authenticated/pacientes'
+import { Route as AuthenticatedProntuariosRouteImport } from './routes/_authenticated/prontuarios'
 import { Route as AuthenticatedProteticosRouteImport } from './routes/_authenticated/proteticos'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedTiposAtendimentoRouteImport } from './routes/_authenticated/tipos-atendimento'
@@ -42,6 +44,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedBoletinsRoute = AuthenticatedBoletinsRouteImport.update({
   id: '/boletins',
@@ -100,6 +107,12 @@ const AuthenticatedPacientesRoute = AuthenticatedPacientesRouteImport.update({
   path: '/pacientes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProntuariosRoute =
+  AuthenticatedProntuariosRouteImport.update({
+    id: '/prontuarios',
+    path: '/prontuarios',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProteticosRoute = AuthenticatedProteticosRouteImport.update({
   id: '/proteticos',
   path: '/proteticos',
@@ -130,6 +143,7 @@ const ApiPublicReportPdfRoute = ApiPublicReportPdfRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
   '/boletins': typeof AuthenticatedBoletinsRoute
   '/cidades': typeof AuthenticatedCidadesRoute
   '/clientes': typeof AuthenticatedClientesRoute
@@ -141,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/os': typeof AuthenticatedOsRoute
   '/pacientes': typeof AuthenticatedPacientesRoute
+  '/prontuarios': typeof AuthenticatedProntuariosRoute
   '/proteticos': typeof AuthenticatedProteticosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
@@ -150,6 +165,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
   '/boletins': typeof AuthenticatedBoletinsRoute
   '/cidades': typeof AuthenticatedCidadesRoute
   '/clientes': typeof AuthenticatedClientesRoute
@@ -161,6 +177,7 @@ export interface FileRoutesByTo {
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/os': typeof AuthenticatedOsRoute
   '/pacientes': typeof AuthenticatedPacientesRoute
+  '/prontuarios': typeof AuthenticatedProntuariosRoute
   '/proteticos': typeof AuthenticatedProteticosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
@@ -172,6 +189,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/boletins': typeof AuthenticatedBoletinsRoute
   '/_authenticated/cidades': typeof AuthenticatedCidadesRoute
   '/_authenticated/clientes': typeof AuthenticatedClientesRoute
@@ -183,6 +201,7 @@ export interface FileRoutesById {
   '/_authenticated/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/_authenticated/os': typeof AuthenticatedOsRoute
   '/_authenticated/pacientes': typeof AuthenticatedPacientesRoute
+  '/_authenticated/prontuarios': typeof AuthenticatedProntuariosRoute
   '/_authenticated/proteticos': typeof AuthenticatedProteticosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
@@ -194,6 +213,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/agenda'
     | '/boletins'
     | '/cidades'
     | '/clientes'
@@ -205,6 +225,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/os'
     | '/pacientes'
+    | '/prontuarios'
     | '/proteticos'
     | '/relatorios'
     | '/tipos-atendimento'
@@ -214,6 +235,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/agenda'
     | '/boletins'
     | '/cidades'
     | '/clientes'
@@ -225,6 +247,7 @@ export interface FileRouteTypes {
     | '/fornecedores'
     | '/os'
     | '/pacientes'
+    | '/prontuarios'
     | '/proteticos'
     | '/relatorios'
     | '/tipos-atendimento'
@@ -235,6 +258,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/agenda'
     | '/_authenticated/boletins'
     | '/_authenticated/cidades'
     | '/_authenticated/clientes'
@@ -246,6 +270,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fornecedores'
     | '/_authenticated/os'
     | '/_authenticated/pacientes'
+    | '/_authenticated/prontuarios'
     | '/_authenticated/proteticos'
     | '/_authenticated/relatorios'
     | '/_authenticated/tipos-atendimento'
@@ -282,6 +307,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/boletins': {
       id: '/_authenticated/boletins'
@@ -360,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPacientesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/prontuarios': {
+      id: '/_authenticated/prontuarios'
+      path: '/prontuarios'
+      fullPath: '/prontuarios'
+      preLoaderRoute: typeof AuthenticatedProntuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/proteticos': {
       id: '/_authenticated/proteticos'
       path: '/proteticos'
@@ -399,6 +438,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedBoletinsRoute: typeof AuthenticatedBoletinsRoute
   AuthenticatedCidadesRoute: typeof AuthenticatedCidadesRoute
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
@@ -410,6 +450,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFornecedoresRoute: typeof AuthenticatedFornecedoresRoute
   AuthenticatedOsRoute: typeof AuthenticatedOsRoute
   AuthenticatedPacientesRoute: typeof AuthenticatedPacientesRoute
+  AuthenticatedProntuariosRoute: typeof AuthenticatedProntuariosRoute
   AuthenticatedProteticosRoute: typeof AuthenticatedProteticosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedTiposAtendimentoRoute: typeof AuthenticatedTiposAtendimentoRoute
@@ -417,6 +458,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedBoletinsRoute: AuthenticatedBoletinsRoute,
   AuthenticatedCidadesRoute: AuthenticatedCidadesRoute,
   AuthenticatedClientesRoute: AuthenticatedClientesRoute,
@@ -428,6 +470,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFornecedoresRoute: AuthenticatedFornecedoresRoute,
   AuthenticatedOsRoute: AuthenticatedOsRoute,
   AuthenticatedPacientesRoute: AuthenticatedPacientesRoute,
+  AuthenticatedProntuariosRoute: AuthenticatedProntuariosRoute,
   AuthenticatedProteticosRoute: AuthenticatedProteticosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedTiposAtendimentoRoute: AuthenticatedTiposAtendimentoRoute,
@@ -446,3 +489,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

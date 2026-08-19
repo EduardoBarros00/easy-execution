@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Stethoscope, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Sparkles, ShieldCheck, Activity, ClipboardCheck } from "lucide-react";
+import { DentalMark } from "@/components/dental-mark";
 import { toast } from "sonner";
 import { recordLogin } from "@/lib/admin-users.functions";
 
@@ -115,19 +116,19 @@ function LoginPage() {
       return toast.error(error.message);
     }
 
-    // Create new city for this user if requested (via controlled server-side routine)
+    // Create new city for this user if requested
     if (showNewCity && signData.user) {
-      const { data: created, error: cErr } = await (supabase as any).rpc("bootstrap_city", {
-        _name: newCityName.trim(),
-        _uf: newCityUf.trim().toUpperCase(),
-      });
+      const { data: created, error: cErr } = await supabase
+        .from("cities")
+        .insert({ owner_id: signData.user.id, name: newCityName.trim(), uf: newCityUf.trim().toUpperCase() })
+        .select("id")
+        .single();
       if (cErr) {
         toast.error("Conta criada, mas falha ao salvar cidade: " + cErr.message);
       } else if (created) {
-        finalCityId = created as string;
+        finalCityId = created.id;
       }
     }
-
 
     // Save city to profile
     if (signData.user && finalCityId) {
@@ -160,38 +161,60 @@ function LoginPage() {
   );
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden bg-gradient-to-br from-primary via-primary to-[oklch(0.42_0.18_265)] p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <Stethoscope className="h-6 w-6" />
+    <div className="grid min-h-screen bg-background lg:grid-cols-[1.08fr_0.92fr]">
+      <div className="relative hidden overflow-hidden bg-[oklch(0.24_0.065_205)] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,oklch(0.65_0.13_185/0.28),transparent_35%),radial-gradient(circle_at_90%_85%,oklch(0.58_0.11_225/0.22),transparent_38%)]" />
+        <div className="absolute -right-24 top-20 h-72 w-72 rounded-full border border-white/10" />
+        <div className="absolute -bottom-28 left-24 h-80 w-80 rounded-full border border-white/10" />
+        <div className="relative flex items-center gap-3">
+          <DentalMark className="h-12 w-12 bg-white/12 text-white shadow-none ring-1 ring-white/20" />
+          <div>
+            <span className="block text-xl font-bold tracking-tight">LabProt</span>
+            <span className="text-xs text-white/60">Laboratório Odontológico</span>
           </div>
-          <span className="text-lg font-semibold">LabProt</span>
         </div>
-        <div className="space-y-4">
-          <h2 className="text-4xl font-bold leading-tight">Gestão completa do seu laboratório de prótese.</h2>
-          <p className="text-base text-white/80">
-            Controle ordens de serviço, financeiro, clientes e produção em um único lugar — rápido, organizado e profissional.
-          </p>
+        <div className="relative max-w-xl space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5" /> Gestão inteligente para prótese odontológica
+          </div>
+          <div>
+            <h2 className="text-4xl font-bold leading-[1.08] tracking-[-0.045em] xl:text-5xl">Mais controle em cada etapa do seu laboratório.</h2>
+            <p className="mt-4 max-w-lg text-base leading-relaxed text-white/68">
+              Ordens de serviço, pacientes, profissionais, produção e financeiro conectados em um ambiente simples e profissional.
+            </p>
+          </div>
+          <div className="grid max-w-lg grid-cols-3 gap-3">
+            {[
+              { icon: ClipboardCheck, label: "OS organizadas" },
+              { icon: Activity, label: "Produção visível" },
+              { icon: ShieldCheck, label: "Dados protegidos" },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3 backdrop-blur">
+                <Icon className="mb-2 h-4 w-4 text-[oklch(0.78_0.12_180)]" />
+                <span className="text-xs font-medium text-white/75">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <p className="text-xs text-white/60">© {new Date().getFullYear()} LabProt</p>
+        <p className="relative text-xs text-white/42">© {new Date().getFullYear()} LabProt · Gestão laboratorial</p>
       </div>
 
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <Card className="w-full max-w-md border-border/60 shadow-sm">
+      <div className="relative flex items-center justify-center p-6 sm:p-12">
+        <div className="absolute left-8 top-8 flex items-center gap-2 lg:hidden">
+          <DentalMark className="h-9 w-9" />
+          <span className="font-bold">LabProt</span>
+        </div>
+        <Card className="w-full max-w-md border-border/65 bg-card/94 shadow-[0_25px_70px_-42px_oklch(0.22_0.08_205/0.7)]">
           <CardHeader>
-            <div className="mb-2 flex items-center gap-2 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Stethoscope className="h-5 w-5" />
-              </div>
-              <span className="font-semibold">LabProt</span>
+            <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full bg-primary/8 px-2.5 py-1 text-[11px] font-semibold text-primary">
+              <ShieldCheck className="h-3.5 w-3.5" /> Acesso seguro
             </div>
-            <CardTitle>Acessar o sistema</CardTitle>
-            <CardDescription>Selecione sua cidade e entre, ou crie uma nova conta.</CardDescription>
+            <CardTitle className="text-2xl tracking-[-0.035em]">Acessar o LabProt</CardTitle>
+            <CardDescription>Entre para acompanhar sua operação odontológica.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "signup")}>
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-muted/70 p-1">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="signup">Criar conta</TabsTrigger>
               </TabsList>

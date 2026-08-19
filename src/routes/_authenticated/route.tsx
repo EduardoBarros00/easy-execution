@@ -22,10 +22,12 @@ function AuthenticatedLayout() {
     <SidebarProvider>
       <div className="relative flex min-h-screen w-full">
         <AppSidebar />
-        <SidebarInset className="flex min-w-0 flex-1 flex-col">
+        <SidebarInset className="flex min-w-0 flex-1 flex-col bg-transparent">
           <AppHeader />
           <main className="flex-1 p-4 md:p-6 lg:p-8">
-            <Outlet />
+            <div className="mx-auto w-full max-w-[1600px]">
+              <Outlet />
+            </div>
           </main>
         </SidebarInset>
         {loading && (

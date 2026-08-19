@@ -1,4 +1,4 @@
-import { Moon, Sun, LogOut } from "lucide-react";
+import { Moon, Sun, LogOut, Activity } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,15 +15,19 @@ export function AppHeader({ title }: { title?: string }) {
     navigate({ to: "/login" });
   };
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur md:px-6">
-      <SidebarTrigger />
-      <div className="flex-1">
-        {title && <h1 className="text-sm font-semibold md:text-base">{title}</h1>}
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/65 bg-background/82 px-3 backdrop-blur-xl md:px-6">
+      <SidebarTrigger className="rounded-xl" />
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {title && <h1 className="truncate text-sm font-semibold md:text-base">{title}</h1>}
+        <div className="hidden items-center gap-1.5 rounded-full border border-primary/15 bg-primary/7 px-2.5 py-1 text-[11px] font-medium text-primary md:flex">
+          <Activity className="h-3.5 w-3.5" />
+          Gestão odontológica
+        </div>
       </div>
-      <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">
+      <Button variant="ghost" size="icon" className="rounded-xl" onClick={toggle} aria-label="Alternar tema">
         {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
-      <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sair">
+      <Button variant="ghost" size="icon" className="rounded-xl text-muted-foreground hover:text-destructive" onClick={signOut} aria-label="Sair">
         <LogOut className="h-4 w-4" />
       </Button>
     </header>
