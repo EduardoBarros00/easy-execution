@@ -15,6 +15,7 @@ import {
   UserRound,
   ShieldCheck,
   ListChecks,
+  BadgeDollarSign,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,6 +35,7 @@ import {
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ordens de Serviço", url: "/os" as const, icon: ClipboardList },
+  { title: "Valores por Cidade", url: "/valores-cidade", icon: BadgeDollarSign },
   { title: "Tipos de Atendimento", url: "/tipos-atendimento", icon: ListChecks },
   { title: "Cidades", url: "/cidades", icon: MapPin },
   { title: "Contratantes", url: "/clientes", icon: Users },
