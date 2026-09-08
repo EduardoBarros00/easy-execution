@@ -180,6 +180,16 @@ function serviceClassification(serviceType: string | null, typeName: string | nu
   };
 }
 
+function canonicalServiceDescription(order: ClassifiedOrder) {
+  if (!order.modality) return order.description;
+  const hasSuperior = order.superior !== "-";
+  const hasInferior = order.inferior !== "-";
+  if (hasSuperior && hasInferior) return `${order.modality} superior e inferior`;
+  if (hasSuperior) return `${order.modality} superior`;
+  if (hasInferior) return `${order.modality} inferior`;
+  return order.modality;
+}
+
 async function loadLiveReportData(supabase: any, payload: ReportPdfPayload): Promise<LiveReportData | null> {
   if (payload.cityName.toLowerCase().includes("todas as cidades")) return null;
 
@@ -354,7 +364,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
       body: liveData.orders.map((order) => [
         order.code ?? "—",
         order.patient_name ?? "—",
-        order.description,
+        canonicalServiceDescription(order),
         brl(Number(order.price ?? 0)),
         STATUS_LABEL[String(order.status ?? "")] ?? String(order.status ?? "—"),
       ]),
@@ -364,19 +374,21 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
       theme: "grid",
     });
 
-    const groups = new Map<string, { units: number; total: number }>();
+    const groups = new Map<string, { units: number; total: number; unitValue: number | null }>();
     for (const order of liveData.orders.filter((item) => item.modality === "PT" || item.modality === "PPR")) {
-      const key = order.description;
-      const current = groups.get(key) ?? { units: 0, total: 0 };
+      const key = canonicalServiceDescription(order);
+      const cityUnit = order.modality === "PT" ? liveData.ptUnit : liveData.pprUnit;
+      const current = groups.get(key) ?? { units: 0, total: 0, unitValue: cityUnit };
       current.units += order.units;
       current.total += Number(order.price ?? 0);
+      if (current.unitValue === null && cityUnit !== null) current.unitValue = cityUnit;
       groups.set(key, current);
     }
 
     const summaryRows = Array.from(groups.entries()).map(([description, group]) => [
       description,
       String(group.units).padStart(2, "0"),
-      brl(group.units ? group.total / group.units : 0),
+      brl(group.unitValue ?? (group.units ? group.total / group.units : 0)),
       brl(group.total),
     ]);
     summaryRows.push(["VALOR GLOBAL", "", "", brl(allTotal)]);
