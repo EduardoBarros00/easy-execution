@@ -1,0 +1,175 @@
+name: Patch direct PT/PPR options
+
+on:
+  push:
+    branches:
+      - 'EduardoBarros00/easy-execution-main'
+    paths:
+      - '.github/workflows/patch-direct-pt-ppr-options.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 'EduardoBarros00/easy-execution-main'
+          fetch-depth: 0
+
+      - name: Patch OS service selector
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/routes/_authenticated/os.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''  const selectedType = types.find((t) => t.id === typeId);
+          const pricedServiceCode = serviceCodeFromType(selectedType?.name ?? "");
+          const selectedCity = cities.find((c) => c.id === cityId);
+          const selectedClient = clients.find((c) => c.id === clientId);'''
+          new = '''  const selectedType = types.find((t) => t.id === typeId);
+          const pricedServiceCode = serviceCodeFromType(selectedType?.name ?? "");
+          const selectedCity = cities.find((c) => c.id === cityId);
+          const selectedClient = clients.find((c) => c.id === clientId);
+
+          const serviceOptions = useMemo(() => {
+            return filteredTypes.flatMap((type) => {
+              const code = serviceCodeFromType(type.name);
+              if (!code) return [{ value: type.id, label: type.name }];
+
+              if (code === "PT") {
+                return [
+                  { value: `${type.id}::superior`, label: "PT superior" },
+                  { value: `${type.id}::inferior`, label: "PT inferior" },
+                  { value: `${type.id}::both`, label: "PT total (superior + inferior) — 2 próteses" },
+                ];
+              }
+
+              return [
+                { value: `${type.id}::superior`, label: "PPR superior" },
+                { value: `${type.id}::inferior`, label: "PPR inferior" },
+                { value: `${type.id}::both`, label: "PPR superior + inferior — 2 próteses" },
+              ];
+            });
+          }, [filteredTypes]);
+
+          const selectedServiceOptionValue = pricedServiceCode && arcade ? `${typeId}::${arcade}` : typeId;'''
+          if old not in text:
+            raise SystemExit('Marker 1 not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  useEffect(() => {
+            if (editing || priceManuallyEdited) return;'''
+          new = '''  useEffect(() => {
+            if (priceManuallyEdited) return;'''
+          if old not in text:
+            raise SystemExit('Marker 2 not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  }, [editing, priceManuallyEdited, cityId, pricedServiceCode, arcade, cityServicePrices]);'''
+          new = '''  }, [priceManuallyEdited, cityId, pricedServiceCode, arcade, cityServicePrices]);'''
+          if old not in text:
+            raise SystemExit('Marker 3 not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  const handleTypeChange = (id: string) => {
+            setTypeId(id);
+            setArcade("");
+            if (!editing) {
+              setPriceValue("0");
+              setPriceManuallyEdited(false);
+            }
+          };
+
+          const handleArcadeChange = (value: Arcade) => {
+            setArcade(value);
+            if (!editing) setPriceManuallyEdited(false);
+          };'''
+          new = '''  const handleTypeChange = (value: string) => {
+            const [nextTypeId, nextArcade = ""] = value.split("::");
+            setTypeId(nextTypeId);
+            setArcade(nextArcade as Arcade);
+            setPriceValue("0");
+            setPriceManuallyEdited(false);
+          };'''
+          if old not in text:
+            raise SystemExit('Marker 4 not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            <div className="space-y-1.5">
+              <Label>Tipo de atendimento (catálogo)</Label>
+              <Select value={typeId} onValueChange={handleTypeChange} disabled={!cityId || filteredTypes.length === 0}>
+                <SelectTrigger><SelectValue placeholder={!cityId ? "Selecione o contratante primeiro" : filteredTypes.length ? "Selecione…" : "Nenhum tipo disponível nesta cidade"} /></SelectTrigger>
+                <SelectContent>{filteredTypes.map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+
+            {pricedServiceCode ? (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Serviço / arcada *</Label>
+                <Select value={arcade} onValueChange={(value) => handleArcadeChange(value as Arcade)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o serviço…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="superior">{pricedServiceCode} superior — 1 prótese</SelectItem>
+                    <SelectItem value="inferior">{pricedServiceCode} inferior — 1 prótese</SelectItem>
+                    <SelectItem value="both">
+                      {pricedServiceCode === "PT"
+                        ? "PT total (superior + inferior) — 2 próteses"
+                        : "PPR superior e inferior — 2 próteses"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Superior e inferior têm o mesmo valor unitário. O serviço com as duas arcadas vale 2x o valor unitário.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Descrição do atendimento</Label>
+                <Input value={serviceTypeText} onChange={(e) => setServiceTypeText(e.target.value)} placeholder="Ex: Reembasamento, Limpeza, etc." />
+              </div>
+            )}'''
+          new = '''            <div className="space-y-1.5">
+              <Label>Tipo de atendimento (catálogo)</Label>
+              <Select value={selectedServiceOptionValue} onValueChange={handleTypeChange} disabled={!cityId || serviceOptions.length === 0}>
+                <SelectTrigger><SelectValue placeholder={!cityId ? "Selecione o contratante primeiro" : serviceOptions.length ? "Selecione…" : "Nenhum tipo disponível nesta cidade"} /></SelectTrigger>
+                <SelectContent>
+                  {serviceOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {pricedServiceCode && arcade && (
+                <p className="text-[11px] text-muted-foreground">
+                  Valor calculado automaticamente pela cidade. Superior ou inferior = 1 prótese; superior + inferior = 2 próteses.
+                </p>
+              )}
+            </div>
+
+            {!pricedServiceCode && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Descrição do atendimento</Label>
+                <Input value={serviceTypeText} onChange={(e) => setServiceTypeText(e.target.value)} placeholder="Ex: Reembasamento, Limpeza, etc." />
+              </div>
+            )}'''
+          if old not in text:
+            raise SystemExit('Marker 5 not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit correction
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_authenticated/os.tsx
+          git commit -m "fix: mostra seis opções diretas de PT e PPR"
+          git push origin HEAD:'EduardoBarros00/easy-execution-main'
