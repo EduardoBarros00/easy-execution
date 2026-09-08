@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ type ServiceOrder = {
 };
 
 type OsExpense = { id?: string; description: string; amount: number };
+type CityServicePrice = { city_id: string; service_code: "PT" | "PPR"; unit_price: number | string; active: boolean };
 
 type OsStatus = "pending" | "in_progress" | "delivered" | "cancelled";
 type ClientMini = { id: string; dentist_name: string; clinic_name: string | null; contractor_name: string | null };
@@ -60,6 +61,27 @@ const STATUS_OPTIONS: { value: OsStatus; label: string }[] = [
   { value: "delivered", label: "Entregue" },
   { value: "cancelled", label: "Cancelado" },
 ];
+
+function classifyPricedService(serviceText: string, typeName: string) {
+  const raw = `${serviceText} ${typeName}`
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  let serviceCode: "PT" | "PPR" | null = null;
+  if (/\bPPR\b/.test(raw) || raw.includes("PROTESE PARCIAL REMOVIVEL")) {
+    serviceCode = "PPR";
+  } else if (/\bPT\b/.test(raw) || raw.includes("PROTESE TOTAL")) {
+    serviceCode = "PT";
+  }
+
+  if (!serviceCode) return null;
+
+  const hasSuperior = /\b(SUP|SUPERIOR)\b/.test(raw);
+  const hasInferior = /\b(INF|INFERIOR|INFERIOS)\b/.test(raw) || raw.includes("INFERI");
+  return { serviceCode, units: hasSuperior && hasInferior ? 2 : 1 };
+}
 
 function OS() {
   const qc = useQueryClient();
@@ -86,6 +108,8 @@ function OS() {
   const [newExpAmount, setNewExpAmount] = useState("");
   const [healthUnit, setHealthUnit] = useState("");
   const [serviceTypeText, setServiceTypeText] = useState("");
+  const [priceValue, setPriceValue] = useState("0");
+  const [priceManuallyEdited, setPriceManuallyEdited] = useState(false);
 
   const addDays = (date: string, days: number) => {
     if (!date) return "";
@@ -176,6 +200,18 @@ function OS() {
     },
   });
 
+  const { data: cityServicePrices = [] } = useQuery({
+    queryKey: ["city-service-prices"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("city_service_prices")
+        .select("city_id, service_code, unit_price, active")
+        .eq("active", true);
+      if (error) throw error;
+      return (data ?? []) as CityServicePrice[];
+    },
+  });
+
   const { data: allExpenses = [] } = useQuery({
     queryKey: ["os_expenses_all"],
     queryFn: async () => {
@@ -188,6 +224,28 @@ function OS() {
     m[e.os_id] = (m[e.os_id] ?? 0) + Number(e.amount);
     return m;
   }, {});
+
+  useEffect(() => {
+    if (editing || priceManuallyEdited) return;
+
+    const selectedTypeName = types.find((type) => type.id === typeId)?.name ?? "";
+    const classification = classifyPricedService(serviceTypeText, selectedTypeName);
+    if (!cityId || !classification) {
+      setPriceValue("0");
+      return;
+    }
+
+    const priceRow = cityServicePrices.find(
+      (row) => row.city_id === cityId && row.service_code === classification.serviceCode && row.active,
+    );
+    if (!priceRow) {
+      setPriceValue("0");
+      return;
+    }
+
+    const automaticPrice = Number(priceRow.unit_price) * classification.units;
+    setPriceValue(Number.isFinite(automaticPrice) ? automaticPrice.toFixed(2) : "0");
+  }, [editing, priceManuallyEdited, cityId, serviceTypeText, typeId, types, cityServicePrices]);
 
   const openNew = () => {
     setEditing(null);
@@ -203,6 +261,8 @@ function OS() {
     setNewExpDesc(""); setNewExpAmount("");
     setHealthUnit("");
     setServiceTypeText("");
+    setPriceValue("0");
+    setPriceManuallyEdited(false);
     const today = new Date().toISOString().slice(0, 10);
     applyStageDefaults(today);
     setOpen(true);
@@ -227,6 +287,8 @@ function OS() {
     setExpectedAt(o.expected_at ?? "");
     setHealthUnit((o as any).health_unit ?? "");
     setServiceTypeText((o as any).service_type ?? "");
+    setPriceValue(String(Number(o.price ?? 0)));
+    setPriceManuallyEdited(true);
     setNewExpDesc(""); setNewExpAmount("");
     const { data } = await (supabase as any).from("os_expenses").select("*").eq("os_id", o.id);
     setExpenses(((data as any[]) ?? []).map((e) => ({ id: e.id, description: e.description, amount: Number(e.amount) })));
@@ -267,7 +329,7 @@ function OS() {
       acrylization_date: acryl || null,
       status,
       notes: s("notes"),
-      price: Number(fd.get("price") || 0),
+      price: Number(priceValue || 0),
       cost: Number(fd.get("cost") || 0),
       health_unit: healthUnit.trim(),
       service_type: serviceTypeText.trim() || null,
@@ -587,7 +649,6 @@ function OS() {
               <p className="mt-2 text-xs text-muted-foreground">As datas são pré-fixadas a partir de "Recebido em" (+1, +3, +5, +7 dias). Edite se necessário.</p>
             </div>
 
-
             <div className="sm:col-span-2 mt-3 flex items-center gap-3">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
               <div><p className="text-sm font-semibold">Valores e gastos</p><p className="text-[11px] text-muted-foreground">Controle financeiro desta ordem de serviço</p></div>
@@ -605,7 +666,23 @@ function OS() {
             </div>
             <div className="space-y-1.5">
               <Label>Valor do serviço (R$)</Label>
-              <Input type="number" step="0.01" name="price" defaultValue={String(editing?.price ?? 0)} />
+              <Input
+                type="number"
+                step="0.01"
+                name="price"
+                value={priceValue}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setPriceValue(next);
+                  setPriceManuallyEdited(next.trim() !== "" && Number(next) !== 0);
+                }}
+              />
+              {!editing && !priceManuallyEdited && Number(priceValue) > 0 && (
+                <p className="text-[11px] text-muted-foreground">Valor calculado automaticamente pela cidade e pelo tipo de prótese.</p>
+              )}
+              {!editing && priceManuallyEdited && (
+                <p className="text-[11px] text-muted-foreground">Valor manual preservado. Digite 0 para voltar ao cálculo automático.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Custo (R$)</Label>
