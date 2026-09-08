@@ -106,6 +106,7 @@ function serviceCodeFromType(typeName: string): "PT" | "PPR" | null {
 
 function inferArcade(serviceText: string): Arcade {
   const raw = normalizeOptionLabel(serviceText);
+  if (raw === "PT TOTAL" || raw.startsWith("PT TOTAL ")) return "both";
   const superior = /\b(SUP|SUPERIOR)\b/.test(raw);
   const inferior = /\b(INF|INFERIOR|INFERIOS)\b/.test(raw) || raw.includes("INFERI");
   if (superior && inferior) return "both";
@@ -136,7 +137,8 @@ function addDaysLocal(date: string, days: number) {
 function standardizedServiceType(code: "PT" | "PPR", arcade: Arcade) {
   if (arcade === "superior") return `${code} superior`;
   if (arcade === "inferior") return `${code} inferior`;
-  return `${code} superior e inferior`;
+  if (code === "PT") return "PT total (superior e inferior)";
+  return "PPR superior e inferior";
 }
 
 function OS() {
@@ -478,7 +480,7 @@ function OS() {
       const type = types.find((t) => t.id === typeId);
       if (!type || (type.city_id !== null && type.city_id !== cityId)) return toast.error("O tipo de atendimento não pertence à cidade desta OS");
     }
-    if (pricedServiceCode && !arcade) return toast.error("Selecione a arcada: Superior, Inferior ou Superior + Inferior");
+    if (pricedServiceCode && !arcade) return toast.error("Selecione o serviço/arcada correspondente");
     if (status === "delivered" && !deliveredAt) return toast.error("Informe a data de entrega para uma OS entregue");
     if (status !== "delivered" && deliveredAt) return toast.error("Há uma data de entrega preenchida. Ajuste o status para Entregue ou limpe a data");
     if (expenses.some((x) => !x.description.trim() || !Number.isFinite(Number(x.amount)) || Number(x.amount) <= 0)) {
@@ -689,16 +691,22 @@ function OS() {
 
             {pricedServiceCode ? (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Arcada *</Label>
+                <Label>Serviço / arcada *</Label>
                 <Select value={arcade} onValueChange={(value) => handleArcadeChange(value as Arcade)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a arcada…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o serviço…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="superior">Superior</SelectItem>
-                    <SelectItem value="inferior">Inferior</SelectItem>
-                    <SelectItem value="both">Superior + Inferior (2 próteses)</SelectItem>
+                    <SelectItem value="superior">{pricedServiceCode} superior — 1 prótese</SelectItem>
+                    <SelectItem value="inferior">{pricedServiceCode} inferior — 1 prótese</SelectItem>
+                    <SelectItem value="both">
+                      {pricedServiceCode === "PT"
+                        ? "PT total (superior + inferior) — 2 próteses"
+                        : "PPR superior e inferior — 2 próteses"}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground">Superior ou inferior = 1 prótese. Superior + inferior = 2 próteses.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Superior e inferior têm o mesmo valor unitário. O serviço com as duas arcadas vale 2x o valor unitário.
+                </p>
               </div>
             ) : (
               <div className="space-y-1.5 sm:col-span-2">
@@ -751,7 +759,7 @@ function OS() {
             <div className="space-y-1.5">
               <Label>Valor do serviço (R$)</Label>
               <Input type="number" min="0" step="0.01" name="price" value={priceValue} onChange={(e) => { const next = e.target.value; setPriceValue(next); setPriceManuallyEdited(next.trim() !== "" && Number(next) !== 0); }} />
-              {!editing && !priceManuallyEdited && Number(priceValue) > 0 && <p className="text-[11px] text-muted-foreground">Valor calculado automaticamente pela cidade, prótese e arcada.</p>}
+              {!editing && !priceManuallyEdited && Number(priceValue) > 0 && <p className="text-[11px] text-muted-foreground">Valor calculado automaticamente pela cidade, prótese e serviço escolhido.</p>}
               {!editing && priceManuallyEdited && <p className="text-[11px] text-muted-foreground">Valor manual preservado. Digite 0 para voltar ao cálculo automático.</p>}
             </div>
             <div className="space-y-1.5"><Label>Custo (R$)</Label><Input type="number" min="0" step="0.01" name="cost" defaultValue={String(editing?.cost ?? 0)} /></div>
