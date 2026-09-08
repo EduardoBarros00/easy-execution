@@ -160,6 +160,7 @@ function parsePeriod(period: string) {
 
 function serviceClassification(serviceType: string | null, typeName: string | null) {
   const raw = `${serviceType ?? ""} ${typeName ?? ""}`.trim().toUpperCase();
+  const serviceRaw = String(serviceType ?? "").trim().toUpperCase();
   let modality: "PT" | "PPR" | null = null;
   if (/\bPPR\b/.test(raw) || raw.includes("PRÓTESE PARCIAL REMOVÍVEL") || raw.includes("PROTESE PARCIAL REMOVIVEL")) {
     modality = "PPR";
@@ -167,16 +168,18 @@ function serviceClassification(serviceType: string | null, typeName: string | nu
     modality = "PT";
   }
 
+  const isPtTotal = modality === "PT" && (serviceRaw === "PT TOTAL" || serviceRaw.startsWith("PT TOTAL ") || serviceRaw.startsWith("PT TOTAL("));
   const hasSuperior = /\b(SUP|SUPERIOR)\b/.test(raw);
   const hasInferior = /\b(INF|INFERIOR|INFERIOS)\b/.test(raw) || raw.includes("INFERI");
-  const units = hasSuperior && hasInferior ? 2 : 1;
+  const bothArches = isPtTotal || (hasSuperior && hasInferior);
+  const units = bothArches ? 2 : 1;
   const label = modality ?? raw.replace(/\b(SUPERIOR|SUP|INFERIOR|INFERIOS|INF)\b/g, "").trim().split(/\s+/)[0] ?? "—";
 
   return {
     modality,
     units,
-    superior: hasSuperior || (!hasSuperior && !hasInferior) ? label || "—" : "-",
-    inferior: hasInferior ? label || "—" : "-",
+    superior: bothArches || hasSuperior || (!hasSuperior && !hasInferior) ? label || "—" : "-",
+    inferior: bothArches || hasInferior ? label || "—" : "-",
   };
 }
 
@@ -184,7 +187,11 @@ function canonicalServiceDescription(order: ClassifiedOrder) {
   if (!order.modality) return order.description;
   const hasSuperior = order.superior !== "-";
   const hasInferior = order.inferior !== "-";
-  if (hasSuperior && hasInferior) return `${order.modality} superior e inferior`;
+  if (hasSuperior && hasInferior) {
+    return order.modality === "PT"
+      ? "PT total (superior e inferior)"
+      : "PPR superior e inferior";
+  }
   if (hasSuperior) return `${order.modality} superior`;
   if (hasInferior) return `${order.modality} inferior`;
   return order.modality;
