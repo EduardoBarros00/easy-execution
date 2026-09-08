@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -52,8 +52,16 @@ type OsExpense = { id?: string; description: string; amount: number };
 type CityServicePrice = { city_id: string; service_code: "PT" | "PPR"; unit_price: number | string; active: boolean };
 
 type OsStatus = "pending" | "in_progress" | "delivered" | "cancelled";
-type ClientMini = { id: string; dentist_name: string; clinic_name: string | null; contractor_name: string | null };
+type ClientMini = {
+  id: string;
+  dentist_name: string;
+  clinic_name: string | null;
+  contractor_name: string | null;
+  city_id: string | null;
+};
 type PatientMini = { id: string; full_name: string };
+type TechnicianMini = { id: string; full_name: string; city_id: string | null };
+type ProsthesisTypeMini = { id: string; name: string; city_id: string | null };
 
 const STATUS_OPTIONS: { value: OsStatus; label: string }[] = [
   { value: "pending", label: "Pendente" },
@@ -61,6 +69,25 @@ const STATUS_OPTIONS: { value: OsStatus; label: string }[] = [
   { value: "delivered", label: "Entregue" },
   { value: "cancelled", label: "Cancelado" },
 ];
+
+function normalizeOptionLabel(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function dedupeOptions<T>(items: T[], labelFor: (item: T) => string) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalizeOptionLabel(labelFor(item));
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function classifyPricedService(serviceText: string, typeName: string) {
   const raw = `${serviceText} ${typeName}`
@@ -139,7 +166,10 @@ function OS() {
   const { data: clients = [], isLoading: clientsLoading, isError: clientsError } = useQuery({
     queryKey: ["clients-mini"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clients").select("id, dentist_name, clinic_name, contractor_name").order("contractor_name");
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, dentist_name, clinic_name, contractor_name, city_id")
+        .order("contractor_name");
       if (error) throw error;
       return data as ClientMini[];
     },
@@ -169,25 +199,40 @@ function OS() {
   };
 
   const handleClientChange = (id: string) => {
+    const client = clients.find((item) => item.id === id);
     setClientId(id);
-    fillClientNames(clients.find((client) => client.id === id));
+    fillClientNames(client);
+
+    const nextCityId = client?.city_id ?? "";
+    if (nextCityId !== cityId) {
+      setCityId(nextCityId);
+      setTechId("");
+      setTypeId("");
+    }
+  };
+
+  const handleCityChange = (id: string) => {
+    if (id === cityId) return;
+    setCityId(id);
+    setTechId("");
+    setTypeId("");
   };
 
   const { data: techs = [] } = useQuery({
     queryKey: ["techs-mini"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("technicians").select("id, full_name").order("full_name");
+      const { data, error } = await supabase.from("technicians").select("id, full_name, city_id").order("full_name");
       if (error) throw error;
-      return data as { id: string; full_name: string }[];
+      return data as TechnicianMini[];
     },
   });
 
   const { data: types = [] } = useQuery({
     queryKey: ["types-mini"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("prosthesis_types").select("id, name").order("name");
+      const { data, error } = await supabase.from("prosthesis_types").select("id, name, city_id").order("name");
       if (error) throw error;
-      return data as { id: string; name: string }[];
+      return data as ProsthesisTypeMini[];
     },
   });
 
@@ -199,6 +244,42 @@ function OS() {
       return data as { id: string; name: string; uf: string }[];
     },
   });
+
+  const filteredTechs = useMemo(() => {
+    if (!cityId) return [] as TechnicianMini[];
+
+    let result = dedupeOptions(
+      techs.filter((tech) => tech.city_id === cityId),
+      (tech) => tech.full_name,
+    );
+
+    const currentId = editing?.technician_id;
+    if (currentId && !result.some((tech) => tech.id === currentId)) {
+      const current = techs.find((tech) => tech.id === currentId);
+      if (current) result = [current, ...result];
+    }
+
+    return result;
+  }, [techs, cityId, editing?.technician_id]);
+
+  const filteredTypes = useMemo(() => {
+    if (!cityId) return [] as ProsthesisTypeMini[];
+
+    const citySpecific = types.filter((type) => type.city_id === cityId);
+    const source = citySpecific.length > 0
+      ? citySpecific
+      : types.filter((type) => type.city_id === null);
+
+    let result = dedupeOptions(source, (type) => type.name);
+
+    const currentId = editing?.prosthesis_type_id;
+    if (currentId && !result.some((type) => type.id === currentId)) {
+      const current = types.find((type) => type.id === currentId);
+      if (current) result = [current, ...result];
+    }
+
+    return result;
+  }, [types, cityId, editing?.prosthesis_type_id]);
 
   const { data: cityServicePrices = [] } = useQuery({
     queryKey: ["city-service-prices"],
@@ -347,7 +428,6 @@ function OS() {
       osId = ins.id;
       toast.success("OS criada");
     }
-    // Sync expenses: delete all and reinsert current list
     if (osId) {
       await (supabase as any).from("os_expenses").delete().eq("os_id", osId);
       if (expenses.length > 0) {
@@ -545,25 +625,48 @@ function OS() {
 
             <div className="space-y-1.5">
               <Label>Protético</Label>
-              <Select value={techId} onValueChange={setTechId}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+              <Select value={techId} onValueChange={setTechId} disabled={!cityId || filteredTechs.length === 0}>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !cityId
+                        ? "Selecione o contratante primeiro"
+                        : filteredTechs.length === 0
+                          ? "Nenhum protético nesta cidade"
+                          : "Selecione…"
+                    }
+                  />
+                </SelectTrigger>
                 <SelectContent>
-                  {techs.map((t) => (<SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>))}
+                  {filteredTechs.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {!cityId && <p className="text-[11px] text-muted-foreground">O protético será filtrado pela cidade do contratante.</p>}
             </div>
 
             <div className="space-y-1.5">
               <Label>Tipo de atendimento (catálogo)</Label>
-              <Select value={typeId} onValueChange={setTypeId}>
-                <SelectTrigger><SelectValue placeholder={types.length ? "Selecione…" : "Cadastre tipos em Configurações"} /></SelectTrigger>
+              <Select value={typeId} onValueChange={setTypeId} disabled={!cityId || filteredTypes.length === 0}>
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !cityId
+                        ? "Selecione o contratante primeiro"
+                        : filteredTypes.length === 0
+                          ? "Nenhum tipo disponível nesta cidade"
+                          : "Selecione…"
+                    }
+                  />
+                </SelectTrigger>
                 <SelectContent>
-                  {types.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">Nenhum tipo cadastrado</div>
-                  )}
-                  {types.map((t) => (<SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>))}
+                  {filteredTypes.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {!cityId && <p className="text-[11px] text-muted-foreground">O catálogo será filtrado pela cidade do contratante.</p>}
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
@@ -657,12 +760,15 @@ function OS() {
 
             <div className="space-y-1.5">
               <Label>Cidade</Label>
-              <Select value={cityId} onValueChange={setCityId}>
+              <Select value={cityId} onValueChange={handleCityChange}>
                 <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
                 <SelectContent>
                   {cities.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name} / {c.uf}</SelectItem>))}
                 </SelectContent>
               </Select>
+              {clientId && clients.find((client) => client.id === clientId)?.city_id && (
+                <p className="text-[11px] text-muted-foreground">Cidade preenchida automaticamente pelo contratante.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Valor do serviço (R$)</Label>
