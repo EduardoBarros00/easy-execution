@@ -40,9 +40,10 @@ function PriceRow({ row, isAdmin, onSaved }: { row: SummaryRow; isAdmin: boolean
     setPpr(String(Number(row.ppr_unit_price || 0).toFixed(2)));
   }, [row.pt_unit_price, row.ppr_unit_price]);
 
+  const ptValue = Number(pt || 0);
+  const pprValue = Number(ppr || 0);
+
   const save = async () => {
-    const ptValue = Number(pt);
-    const pprValue = Number(ppr);
     if (!Number.isFinite(ptValue) || !Number.isFinite(pprValue) || ptValue < 0 || pprValue < 0) {
       return toast.error("Informe valores válidos para PT e PPR");
     }
@@ -65,15 +66,24 @@ function PriceRow({ row, isAdmin, onSaved }: { row: SummaryRow; isAdmin: boolean
   return (
     <TableRow>
       <TableCell className="min-w-[220px] font-medium">{row.city_name}</TableCell>
-      <TableCell className="min-w-[130px]">
-        {isAdmin ? <Input type="number" min="0" step="0.01" value={pt} onChange={(e) => setPt(e.target.value)} /> : brl(row.pt_unit_price)}
+      <TableCell className="min-w-[128px]">
+        {isAdmin ? (
+          <Input type="number" min="0" step="0.01" value={pt} onChange={(e) => setPt(e.target.value)} />
+        ) : (
+          <span className="whitespace-nowrap">{brl(row.pt_unit_price)}</span>
+        )}
       </TableCell>
-      <TableCell className="min-w-[130px]">
-        {isAdmin ? <Input type="number" min="0" step="0.01" value={ppr} onChange={(e) => setPpr(e.target.value)} /> : brl(row.ppr_unit_price)}
+      <TableCell className="whitespace-nowrap font-semibold">{brl(ptValue * 2)}</TableCell>
+      <TableCell className="min-w-[128px]">
+        {isAdmin ? (
+          <Input type="number" min="0" step="0.01" value={ppr} onChange={(e) => setPpr(e.target.value)} />
+        ) : (
+          <span className="whitespace-nowrap">{brl(row.ppr_unit_price)}</span>
+        )}
       </TableCell>
-      <TableCell className="whitespace-nowrap font-semibold">{brl(Number(row.pt_unit_price) + Number(row.ppr_unit_price))}</TableCell>
-      <TableCell className="text-center">{Number(row.pt_count)}</TableCell>
-      <TableCell className="text-center">{Number(row.ppr_count)}</TableCell>
+      <TableCell className="whitespace-nowrap font-semibold">{brl(pprValue * 2)}</TableCell>
+      <TableCell className="text-center font-medium">{Number(row.pt_count)}</TableCell>
+      <TableCell className="text-center font-medium">{Number(row.ppr_count)}</TableCell>
       <TableCell className="whitespace-nowrap font-semibold">{brl(row.total_os_value)}</TableCell>
       <TableCell className="whitespace-nowrap">{brl(row.delivered_value)}</TableCell>
       <TableCell className="whitespace-nowrap">{brl(row.open_value)}</TableCell>
@@ -130,20 +140,26 @@ function ValoresCidade() {
     <div className="space-y-5">
       <PageHeader
         title="Valores por Cidade"
-        description="Tabela de PT/PPR e resumo financeiro das ordens de serviço"
+        description="Valores unitários de PT/PPR e total a receber por município"
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total das OS</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Total a receber</CardTitle>
+          </CardHeader>
           <CardContent className="text-2xl font-semibold">{brl(totals.total)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">OS entregues</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Entregue</CardTitle>
+          </CardHeader>
           <CardContent className="text-2xl font-semibold">{brl(totals.delivered)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">OS em aberto</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Em aberto</CardTitle>
+          </CardHeader>
           <CardContent className="text-2xl font-semibold">{brl(totals.open)}</CardContent>
         </Card>
       </div>
@@ -152,7 +168,7 @@ function ValoresCidade() {
         <CardHeader>
           <CardTitle className="text-base">Tabela resumida</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Em novas OS de PT/PPR, se o valor estiver em R$ 0,00, o preço da cidade é aplicado automaticamente ao salvar. Uruburetama não aparece aqui porque é apenas teste.
+            Os valores de PT e PPR são por prótese. Superior + inferior são 2 unidades e custam 2x o valor unitário. As quantidades abaixo contam próteses, não pacientes/OS. Uruburetama permanece apenas como teste e não aparece neste resumo.
           </p>
         </CardHeader>
         <CardContent className="p-0">
@@ -162,22 +178,25 @@ function ValoresCidade() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cidade / Contratante</TableHead>
-                  <TableHead>PT</TableHead>
-                  <TableHead>PPR</TableHead>
-                  <TableHead>PT + PPR</TableHead>
+                  <TableHead>PT unit.</TableHead>
+                  <TableHead>PT sup.+inf.</TableHead>
+                  <TableHead>PPR unit.</TableHead>
+                  <TableHead>PPR sup.+inf.</TableHead>
                   <TableHead className="text-center">Qtd. PT</TableHead>
                   <TableHead className="text-center">Qtd. PPR</TableHead>
-                  <TableHead>Total das OS</TableHead>
+                  <TableHead>Total a receber</TableHead>
                   <TableHead>Entregue</TableHead>
                   <TableHead>Em aberto</TableHead>
                   {isAdmin && <TableHead className="text-right">Ação</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => <PriceRow key={row.city_id} row={row} isAdmin={isAdmin} onSaved={refresh} />)}
+                {rows.map((row) => (
+                  <PriceRow key={row.city_id} row={row} isAdmin={isAdmin} onSaved={refresh} />
+                ))}
                 {!isLoading && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 10 : 9} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={isAdmin ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">
                       Nenhuma cidade com tabela de preços disponível.
                     </TableCell>
                   </TableRow>
