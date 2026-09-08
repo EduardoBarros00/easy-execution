@@ -18,6 +18,7 @@ import {
   Activity,
   CalendarDays,
   FileText,
+  BadgeDollarSign,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DentalMark } from "@/components/dental-mark";
@@ -66,6 +67,7 @@ const groups = [
   {
     label: "Financeiro",
     items: [
+      { title: "Valores por Cidade", url: "/valores-cidade", icon: BadgeDollarSign },
       { title: "Financeiro", url: "/financeiro", icon: Wallet },
       { title: "Despesas", url: "/despesas", icon: Receipt },
     ],
