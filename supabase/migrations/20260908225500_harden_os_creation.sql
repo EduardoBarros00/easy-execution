@@ -68,17 +68,19 @@ DECLARE
   v_item jsonb;
   v_description text;
   v_amount numeric;
+  v_owner_id uuid;
 BEGIN
   IF p_os_id IS NULL OR p_city_id IS NULL THEN
     RAISE EXCEPTION 'OS e cidade são obrigatórias';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.service_orders
-    WHERE id = p_os_id
-      AND city_id = p_city_id
-  ) THEN
+  SELECT owner_id
+    INTO v_owner_id
+  FROM public.service_orders
+  WHERE id = p_os_id
+    AND city_id = p_city_id;
+
+  IF v_owner_id IS NULL THEN
     RAISE EXCEPTION 'OS não encontrada na cidade informada';
   END IF;
 
@@ -117,7 +119,7 @@ BEGIN
       description,
       amount
     ) VALUES (
-      auth.uid(),
+      v_owner_id,
       p_os_id,
       p_city_id,
       btrim(v_item->>'description'),
