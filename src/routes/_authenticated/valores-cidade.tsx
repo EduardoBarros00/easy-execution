@@ -168,7 +168,7 @@ function ValoresCidade() {
         <CardHeader>
           <CardTitle className="text-base">Tabela resumida</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Os valores de PT e PPR são por prótese. Superior + inferior são 2 unidades e custam 2x o valor unitário. As quantidades abaixo contam próteses, não pacientes/OS. Uruburetama permanece apenas como teste e não aparece neste resumo.
+            PT superior e PT inferior usam o mesmo valor unitário. PT total é superior + inferior juntas: 2 próteses e 2x o valor unitário. PPR superior e PPR inferior também usam o mesmo unitário; PPR superior + inferior são 2 próteses. As quantidades contam próteses, não pacientes/OS. Uruburetama permanece apenas como teste.
           </p>
         </CardHeader>
         <CardContent className="p-0">
@@ -179,7 +179,7 @@ function ValoresCidade() {
                 <TableRow>
                   <TableHead>Cidade / Contratante</TableHead>
                   <TableHead>PT unit.</TableHead>
-                  <TableHead>PT sup.+inf.</TableHead>
+                  <TableHead>PT total</TableHead>
                   <TableHead>PPR unit.</TableHead>
                   <TableHead>PPR sup.+inf.</TableHead>
                   <TableHead className="text-center">Qtd. PT</TableHead>
