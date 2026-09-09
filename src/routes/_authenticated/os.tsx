@@ -309,6 +309,29 @@ function OS() {
   const selectedCity = cities.find((c) => c.id === cityId);
   const selectedClient = clients.find((c) => c.id === clientId);
 
+  const serviceOptions = useMemo(() => {
+    return filteredTypes.flatMap((type) => {
+      const code = serviceCodeFromType(type.name);
+      if (!code) return [{ value: type.id, label: type.name }];
+
+      if (code === "PT") {
+        return [
+          { value: `${type.id}::superior`, label: "PT superior" },
+          { value: `${type.id}::inferior`, label: "PT inferior" },
+          { value: `${type.id}::both`, label: "PT total (superior + inferior) — 2 próteses" },
+        ];
+      }
+
+      return [
+        { value: `${type.id}::superior`, label: "PPR superior" },
+        { value: `${type.id}::inferior`, label: "PPR inferior" },
+        { value: `${type.id}::both`, label: "PPR superior + inferior — 2 próteses" },
+      ];
+    });
+  }, [filteredTypes]);
+
+  const selectedServiceOptionValue = pricedServiceCode && arcade ? `${typeId}::${arcade}` : typeId;
+
   const ubsHistory = useMemo(
     () => Array.from(new Set(orders.filter((o) => o.city_id === cityId).map((o) => (o.health_unit ?? "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")),
     [orders, cityId],
@@ -320,7 +343,7 @@ function OS() {
   }, {});
 
   useEffect(() => {
-    if (editing || priceManuallyEdited) return;
+    if (priceManuallyEdited) return;
     if (!cityId || !pricedServiceCode || !arcade) {
       setPriceValue("0");
       return;
@@ -333,7 +356,7 @@ function OS() {
     const units = arcade === "both" ? 2 : 1;
     const automaticPrice = Number(row.unit_price) * units;
     setPriceValue(Number.isFinite(automaticPrice) ? automaticPrice.toFixed(2) : "0");
-  }, [editing, priceManuallyEdited, cityId, pricedServiceCode, arcade, cityServicePrices]);
+  }, [priceManuallyEdited, cityId, pricedServiceCode, arcade, cityServicePrices]);
 
   const matchDentistForClient = (client: ClientMini | undefined, targetCityId: string) => {
     const legacyName = client?.dentist_name?.trim() ?? "";
@@ -362,18 +385,12 @@ function OS() {
     }
   };
 
-  const handleTypeChange = (id: string) => {
-    setTypeId(id);
-    setArcade("");
-    if (!editing) {
-      setPriceValue("0");
-      setPriceManuallyEdited(false);
-    }
-  };
-
-  const handleArcadeChange = (value: Arcade) => {
-    setArcade(value);
-    if (!editing) setPriceManuallyEdited(false);
+  const handleTypeChange = (value: string) => {
+    const [nextTypeId, nextArcade = ""] = value.split("::");
+    setTypeId(nextTypeId);
+    setArcade(nextArcade as Arcade);
+    setPriceValue("0");
+    setPriceManuallyEdited(false);
   };
 
   const handleStatusChange = (next: OsStatus) => {
@@ -683,32 +700,20 @@ function OS() {
 
             <div className="space-y-1.5">
               <Label>Tipo de atendimento (catálogo)</Label>
-              <Select value={typeId} onValueChange={handleTypeChange} disabled={!cityId || filteredTypes.length === 0}>
-                <SelectTrigger><SelectValue placeholder={!cityId ? "Selecione o contratante primeiro" : filteredTypes.length ? "Selecione…" : "Nenhum tipo disponível nesta cidade"} /></SelectTrigger>
-                <SelectContent>{filteredTypes.map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}</SelectContent>
+              <Select value={selectedServiceOptionValue} onValueChange={handleTypeChange} disabled={!cityId || serviceOptions.length === 0}>
+                <SelectTrigger><SelectValue placeholder={!cityId ? "Selecione o contratante primeiro" : serviceOptions.length ? "Selecione…" : "Nenhum tipo disponível nesta cidade"} /></SelectTrigger>
+                <SelectContent>
+                  {serviceOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectContent>
               </Select>
+              {pricedServiceCode && arcade && (
+                <p className="text-[11px] text-muted-foreground">
+                  Valor calculado automaticamente pela cidade. Superior ou inferior = 1 prótese; superior + inferior = 2 próteses.
+                </p>
+              )}
             </div>
 
-            {pricedServiceCode ? (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Serviço / arcada *</Label>
-                <Select value={arcade} onValueChange={(value) => handleArcadeChange(value as Arcade)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o serviço…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="superior">{pricedServiceCode} superior — 1 prótese</SelectItem>
-                    <SelectItem value="inferior">{pricedServiceCode} inferior — 1 prótese</SelectItem>
-                    <SelectItem value="both">
-                      {pricedServiceCode === "PT"
-                        ? "PT total (superior + inferior) — 2 próteses"
-                        : "PPR superior e inferior — 2 próteses"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  Superior e inferior têm o mesmo valor unitário. O serviço com as duas arcadas vale 2x o valor unitário.
-                </p>
-              </div>
-            ) : (
+            {!pricedServiceCode && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Descrição do atendimento</Label>
                 <Input value={serviceTypeText} onChange={(e) => setServiceTypeText(e.target.value)} placeholder="Ex: Reembasamento, Limpeza, etc." />
