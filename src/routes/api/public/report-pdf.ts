@@ -291,8 +291,8 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
       startY: 41,
       head: [["MODALIDADE", "VALOR UNITÁRIO", "SUPERIOR + INFERIOR"]],
       body: [
-        ["PT - Prótese Total", pt === null ? "—" : brl(pt), pt === null ? "—" : brl(pt * 2)],
-        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr), ppr === null ? "—" : brl(ppr * 2)],
+        ["PT - Prótese Total", pt === null ? "—" : brl(pt), ""],
+        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr), ""],
       ],
       styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
       headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
