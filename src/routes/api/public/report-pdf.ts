@@ -87,6 +87,7 @@ const reportPdfSchema = z.object({
 type ReportPdfPayload = z.infer<typeof reportPdfSchema>;
 
 type LiveOrder = {
+  city_id: string | null;
   code: string | null;
   patient_name: string | null;
   service_type: string | null;
@@ -198,62 +199,105 @@ function canonicalServiceDescription(order: ClassifiedOrder) {
 }
 
 async function loadLiveReportData(supabase: any, payload: ReportPdfPayload): Promise<LiveReportData | null> {
-  if (payload.cityName.toLowerCase().includes("todas as cidades")) return null;
+  const allCities = payload.cityName.toLowerCase().includes("todas as cidades");
+  const { from, to } = parsePeriod(payload.period);
 
-  const requestedCityName = payload.cityName.split(" / ")[0].trim();
-  const { data: city } = await supabase
-    .from("cities")
-    .select("id,name,uf")
-    .eq("name", requestedCityName)
-    .maybeSingle();
+  let selectedCity: { id: string; name: string; uf: string } | null = null;
+  let reportCities: Array<{ id: string; name: string; uf: string }> = [];
 
-  if (!city?.id) return null;
+  if (allCities) {
+    const { data: cities } = await supabase
+      .from("cities")
+      .select("id,name,uf")
+      .order("name");
+    reportCities = (cities ?? []) as Array<{ id: string; name: string; uf: string }>;
+  } else {
+    const requestedCityName = payload.cityName.split(" / ")[0].trim();
+    const { data: city } = await supabase
+      .from("cities")
+      .select("id,name,uf")
+      .eq("name", requestedCityName)
+      .maybeSingle();
 
-  const [{ data: prices }, { data: typeRows }, { data: orderRows }] = await Promise.all([
-    supabase
-      .from("city_service_prices")
-      .select("service_code,unit_price,active")
-      .eq("city_id", city.id)
-      .eq("active", true),
+    if (!city?.id) return null;
+    selectedCity = city as { id: string; name: string; uf: string };
+    reportCities = [selectedCity];
+  }
+
+  let orderQuery = supabase
+    .from("service_orders")
+    .select("city_id,code,patient_name,service_type,prosthesis_type_id,price,status,delivered_at,created_at")
+    .order("created_at", { ascending: true });
+
+  if (selectedCity?.id) {
+    orderQuery = orderQuery.eq("city_id", selectedCity.id);
+  }
+
+  const [{ data: typeRows }, { data: orderRows }] = await Promise.all([
     supabase.from("prosthesis_types").select("id,name"),
-    supabase
-      .from("service_orders")
-      .select("code,patient_name,service_type,prosthesis_type_id,price,status,delivered_at,created_at")
-      .eq("city_id", city.id)
-      .order("created_at", { ascending: true }),
+    orderQuery,
   ]);
 
   const typeMap = new Map<string, string>((typeRows ?? []).map((row: any) => [row.id, row.name]));
-  const { from, to } = parsePeriod(payload.period);
 
-  const orders: ClassifiedOrder[] = ((orderRows ?? []) as LiveOrder[])
+  const filteredOrders = ((orderRows ?? []) as LiveOrder[])
     .filter((order) => order.status !== "cancelled")
     .filter((order) => {
       const ref = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
       if (from && ref < from) return false;
       if (to && ref > to) return false;
       return true;
-    })
-    .map((order) => {
-      const typeName = order.prosthesis_type_id ? typeMap.get(order.prosthesis_type_id) ?? null : null;
-      const classified = serviceClassification(order.service_type, typeName);
-      const description = order.service_type || typeName || classified.modality || "Serviço";
-      const refDate = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
-      return {
-        ...order,
-        ...classified,
-        description,
-        date: formatIsoDate(refDate),
-      };
     });
 
-  const priceMap = new Map<string, number>();
-  for (const row of prices ?? []) priceMap.set(String(row.service_code), Number(row.unit_price ?? 0));
+  const orders: ClassifiedOrder[] = filteredOrders.map((order) => {
+    const typeName = order.prosthesis_type_id ? typeMap.get(order.prosthesis_type_id) ?? null : null;
+    const classified = serviceClassification(order.service_type, typeName);
+    const description = order.service_type || typeName || classified.modality || "Serviço";
+    const refDate = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
+    return {
+      ...order,
+      ...classified,
+      description,
+      date: formatIsoDate(refDate),
+    };
+  });
+
+  const reportCityIds = reportCities.map((city) => city.id).filter(Boolean);
+  let priceRows: Array<{ city_id: string; service_code: string; unit_price: number | string | null }> = [];
+
+  if (reportCityIds.length > 0) {
+    let priceQuery = supabase
+      .from("city_service_prices")
+      .select("city_id,service_code,unit_price,active")
+      .eq("active", true);
+
+    priceQuery = reportCityIds.length === 1
+      ? priceQuery.eq("city_id", reportCityIds[0])
+      : priceQuery.in("city_id", reportCityIds);
+
+    const { data: prices } = await priceQuery;
+    priceRows = (prices ?? []) as Array<{ city_id: string; service_code: string; unit_price: number | string | null }>;
+  }
+
+  const commonUnitPrice = (serviceCode: "PT" | "PPR") => {
+    if (reportCityIds.length === 0) return null;
+
+    const values = reportCityIds.map((cityId) => {
+      const row = priceRows.find(
+        (price) => price.city_id === cityId && String(price.service_code).toUpperCase() === serviceCode,
+      );
+      return row ? Number(row.unit_price ?? 0) : null;
+    });
+
+    if (values.some((value) => value === null || !Number.isFinite(value))) return null;
+    const numericValues = values as number[];
+    return numericValues.every((value) => value === numericValues[0]) ? numericValues[0] : null;
+  };
 
   return {
-    cityLabel: `${city.name} / ${city.uf}`,
-    ptUnit: priceMap.has("PT") ? priceMap.get("PT")! : null,
-    pprUnit: priceMap.has("PPR") ? priceMap.get("PPR")! : null,
+    cityLabel: selectedCity ? `${selectedCity.name} / ${selectedCity.uf}` : payload.cityName,
+    ptUnit: commonUnitPrice("PT"),
+    pprUnit: commonUnitPrice("PPR"),
     orders,
   };
 }
@@ -283,7 +327,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
   doc.setFontSize(8);
   doc.text(`Emitido em ${payload.emittedAt}`, 105, 31, { align: "center" });
 
-  if (liveData && (liveData.ptUnit !== null || liveData.pprUnit !== null)) {
+  if (liveData) {
     sectionTitle("VALORES CONTRATADOS", 38);
     const pt = liveData.ptUnit;
     const ppr = liveData.pprUnit;
