@@ -291,8 +291,8 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
       startY: 41,
       head: [["MODALIDADE", "VALOR UNITÁRIO", "SUPERIOR + INFERIOR"]],
       body: [
-        ["PT - Prótese Total", pt === null ? "—" : brl(pt), ""],
-        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr), ""],
+        ["PT - Prótese Total", pt === null ? "—" : brl(pt), pt === null ? "—" : brl(pt * 2)],
+        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr), ppr === null ? "—" : brl(ppr * 2)],
       ],
       styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
       headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
@@ -314,8 +314,8 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
   sectionTitle("BENEFICIÁRIOS", y);
   autoTable(doc, {
     startY: y + 3,
-    head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
-    body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
+    head: [["NOME DO BENEFICIÁRIO", "DATA"]],
+    body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.date]),
     styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
     headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
     theme: "grid",
