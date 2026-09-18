@@ -29,6 +29,7 @@ import { Route as AuthenticatedProteticosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedTiposAtendimentoRouteImport } from './routes/_authenticated/tipos-atendimento'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedValoresCidadeRouteImport } from './routes/_authenticated/valores-cidade'
 import { Route as ApiPublicReportPdfRouteImport } from './routes/api/public/report-pdf'
 
 const IndexRoute = IndexRouteImport.update({
@@ -134,6 +135,12 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedValoresCidadeRoute =
+  AuthenticatedValoresCidadeRouteImport.update({
+    id: '/valores-cidade',
+    path: '/valores-cidade',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicReportPdfRoute = ApiPublicReportPdfRouteImport.update({
   id: '/api/public/report-pdf',
   path: '/api/public/report-pdf',
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/valores-cidade': typeof AuthenticatedValoresCidadeRoute
   '/api/public/report-pdf': typeof ApiPublicReportPdfRoute
 }
 export interface FileRoutesByTo {
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/valores-cidade': typeof AuthenticatedValoresCidadeRoute
   '/api/public/report-pdf': typeof ApiPublicReportPdfRoute
 }
 export interface FileRoutesById {
@@ -206,6 +215,7 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/tipos-atendimento': typeof AuthenticatedTiposAtendimentoRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/valores-cidade': typeof AuthenticatedValoresCidadeRoute
   '/api/public/report-pdf': typeof ApiPublicReportPdfRoute
 }
 export interface FileRouteTypes {
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/tipos-atendimento'
     | '/usuarios'
+    | '/valores-cidade'
     | '/api/public/report-pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/tipos-atendimento'
     | '/usuarios'
+    | '/valores-cidade'
     | '/api/public/report-pdf'
   id:
     | '__root__'
@@ -275,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/tipos-atendimento'
     | '/_authenticated/usuarios'
+    | '/_authenticated/valores-cidade'
     | '/api/public/report-pdf'
   fileRoutesById: FileRoutesById
 }
@@ -427,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/valores-cidade': {
+      id: '/_authenticated/valores-cidade'
+      path: '/valores-cidade'
+      fullPath: '/valores-cidade'
+      preLoaderRoute: typeof AuthenticatedValoresCidadeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/report-pdf': {
       id: '/api/public/report-pdf'
       path: '/api/public/report-pdf'
@@ -455,6 +475,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedTiposAtendimentoRoute: typeof AuthenticatedTiposAtendimentoRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedValoresCidadeRoute: typeof AuthenticatedValoresCidadeRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -475,6 +496,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedTiposAtendimentoRoute: AuthenticatedTiposAtendimentoRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedValoresCidadeRoute: AuthenticatedValoresCidadeRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

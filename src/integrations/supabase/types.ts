@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -40,6 +40,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      city_service_prices: {
+        Row: {
+          active: boolean
+          city_id: string
+          created_at: string
+          id: string
+          service_code: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          city_id: string
+          created_at?: string
+          id?: string
+          service_code: string
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          city_id?: string
+          created_at?: string
+          id?: string
+          service_code?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "city_service_prices_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -393,27 +431,41 @@ export type Database = {
       }
       profiles: {
         Row: {
+          access_expires_at: string | null
           active: boolean
           city_id: string | null
           created_at: string
           full_name: string | null
           id: string
+          username: string | null
         }
         Insert: {
+          access_expires_at?: string | null
           active?: boolean
           city_id?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          username?: string | null
         }
         Update: {
+          access_expires_at?: string | null
           active?: boolean
           city_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prosthesis_types: {
         Row: {
@@ -907,6 +959,20 @@ export type Database = {
       }
       bootstrap_city: { Args: { _name: string; _uf: string }; Returns: string }
       can_access_city: { Args: { _city_id: string }; Returns: boolean }
+      get_city_values_summary: {
+        Args: never
+        Returns: {
+          city_id: string
+          city_name: string
+          delivered_value: number
+          open_value: number
+          ppr_count: number
+          ppr_unit_price: number
+          pt_count: number
+          pt_unit_price: number
+          total_os_value: number
+        }[]
+      }
       get_user_city_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -916,6 +982,15 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_ciciane_admin_user: { Args: { _user_id: string }; Returns: boolean }
+      profile_has_active_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      replace_os_expenses: {
+        Args: { p_city_id: string; p_expenses?: Json; p_os_id: string }
+        Returns: undefined
+      }
       set_my_city: { Args: { _city_id: string }; Returns: string }
     }
     Enums: {
@@ -938,12 +1013,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -967,11 +1042,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -992,11 +1067,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1017,11 +1092,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1034,11 +1109,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
