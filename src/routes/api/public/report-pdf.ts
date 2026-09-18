@@ -314,8 +314,8 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
   sectionTitle("BENEFICIÁRIOS", y);
   autoTable(doc, {
     startY: y + 3,
-    head: [["NOME DO BENEFICIÁRIO", "DATA"]],
-    body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.date]),
+    head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
+    body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
     styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
     headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
     theme: "grid",
