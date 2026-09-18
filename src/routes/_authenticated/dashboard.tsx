@@ -168,7 +168,7 @@ function Dashboard() {
                 const overdue = o.status !== "delivered" && o.status !== "cancelled" && o.expected_at && o.expected_at < todayStr;
                 return (
                   <li key={o.id}>
-                    <Link to="/os/$id" params={{ id: o.id }} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-primary/[0.04]">
+                    <Link to="/os" className="flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 transition-colors hover:bg-primary/[0.04]">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{o.code}</p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">{o.patient_name} · {fmtDate(o.expected_at)}</p>
