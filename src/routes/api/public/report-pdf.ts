@@ -551,60 +551,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       rowPageBreak: "avoid",
     });
 
-    const groups = new Map<string, { units: number; total: number; unitValue: number | null }>();
-    for (const order of liveData.orders.filter((item) => item.modality === "PT" || item.modality === "PPR")) {
-      const key = canonicalServiceDescription(order);
-      const cityUnit = order.modality === "PT" ? liveData.ptUnit : liveData.pprUnit;
-      const current = groups.get(key) ?? { units: 0, total: 0, unitValue: cityUnit };
-      current.units += order.units;
-      current.total += Number(order.price ?? 0);
-      if (current.unitValue === null && cityUnit !== null) current.unitValue = cityUnit;
-      groups.set(key, current);
-    }
 
-    const summaryRows = Array.from(groups.entries()).map(([description, group]) => [
-      description,
-      String(group.units).padStart(2, "0"),
-      brl(group.unitValue ?? (group.units ? group.total / group.units : 0)),
-      brl(group.total),
-    ]);
-    summaryRows.push(["VALOR GLOBAL", "", "", brl(allTotal)]);
-
-    y = nextSectionY(32);
-    sectionTitle("RESUMO FINANCEIRO", y);
-    autoTable(doc, {
-      startY: y + 2.2,
-      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
-      tableWidth: 190,
-      head: [["DESCRIÇÃO", "QTD", "VLR.UND", "VLR.TOTAL"]],
-      body: summaryRows,
-      styles: {
-        fontSize: 6.8,
-        cellPadding: 0.9,
-        lineColor: [115, 115, 115],
-        lineWidth: 0.13,
-        textColor: [0, 0, 0],
-        valign: "middle",
-      },
-      headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 6.7,
-      },
-      columnStyles: {
-        0: { cellWidth: 92 },
-        1: { cellWidth: 18, halign: "center" },
-        2: { cellWidth: 38, halign: "right" },
-        3: { cellWidth: 42, halign: "right" },
-      },
-      theme: "grid",
-      pageBreak: "avoid",
-      rowPageBreak: "avoid",
-      didParseCell: (data) => {
-        if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
-      },
-    });
   };
 
   const renderFallbackReport = () => {
