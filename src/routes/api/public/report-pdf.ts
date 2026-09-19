@@ -327,7 +327,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
   doc.setFontSize(8);
   doc.text(`Emitido em ${payload.emittedAt}`, 105, 31, { align: "center" });
 
-  // Mantém o quadro de valores contratados no PDF, inclusive no relatório geral.
+  // Mantém o quadro de valores contratados no PDF, inclusive no relatório geral. Sincronização GitHub ativa.
   if (liveData) {
     sectionTitle("VALORES CONTRATADOS", 38);
     const pt = liveData.ptUnit;
