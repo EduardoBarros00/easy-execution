@@ -198,11 +198,10 @@ function canonicalServiceDescription(order: ClassifiedOrder) {
   return order.modality;
 }
 
-async function loadLiveReportData(supabase: any, payload: ReportPdfPayload): Promise<LiveReportData | null> {
+async function loadLiveReportData(supabase: any, payload: ReportPdfPayload): Promise<LiveReportData[] | null> {
   const allCities = payload.cityName.toLowerCase().includes("todas as cidades");
   const { from, to } = parsePeriod(payload.period);
 
-  let selectedCity: { id: string; name: string; uf: string } | null = null;
   let reportCities: Array<{ id: string; name: string; uf: string }> = [];
 
   if (allCities) {
@@ -220,86 +219,81 @@ async function loadLiveReportData(supabase: any, payload: ReportPdfPayload): Pro
       .maybeSingle();
 
     if (!city?.id) return null;
-    selectedCity = city as { id: string; name: string; uf: string };
-    reportCities = [selectedCity];
+    reportCities = [city as { id: string; name: string; uf: string }];
   }
+
+  if (reportCities.length === 0) return null;
+
+  const cityIds = reportCities.map((city) => city.id);
 
   let orderQuery = supabase
     .from("service_orders")
     .select("city_id,code,patient_name,service_type,prosthesis_type_id,price,status,delivered_at,created_at")
     .order("created_at", { ascending: true });
 
-  if (selectedCity?.id) {
-    orderQuery = orderQuery.eq("city_id", selectedCity.id);
-  }
+  orderQuery = cityIds.length === 1
+    ? orderQuery.eq("city_id", cityIds[0])
+    : orderQuery.in("city_id", cityIds);
 
-  const [{ data: typeRows }, { data: orderRows }] = await Promise.all([
+  let priceQuery = supabase
+    .from("city_service_prices")
+    .select("city_id,service_code,unit_price,active")
+    .eq("active", true);
+
+  priceQuery = cityIds.length === 1
+    ? priceQuery.eq("city_id", cityIds[0])
+    : priceQuery.in("city_id", cityIds);
+
+  const [{ data: typeRows }, { data: orderRows }, { data: priceRows }] = await Promise.all([
     supabase.from("prosthesis_types").select("id,name"),
     orderQuery,
+    priceQuery,
   ]);
 
   const typeMap = new Map<string, string>((typeRows ?? []).map((row: any) => [row.id, row.name]));
 
-  const filteredOrders = ((orderRows ?? []) as LiveOrder[])
+  const classifiedOrders: ClassifiedOrder[] = ((orderRows ?? []) as LiveOrder[])
     .filter((order) => order.status !== "cancelled")
     .filter((order) => {
       const ref = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
       if (from && ref < from) return false;
       if (to && ref > to) return false;
       return true;
+    })
+    .map((order) => {
+      const typeName = order.prosthesis_type_id ? typeMap.get(order.prosthesis_type_id) ?? null : null;
+      const classified = serviceClassification(order.service_type, typeName);
+      const description = order.service_type || typeName || classified.modality || "Serviço";
+      const refDate = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
+      return {
+        ...order,
+        ...classified,
+        description,
+        date: formatIsoDate(refDate),
+      };
     });
 
-  const orders: ClassifiedOrder[] = filteredOrders.map((order) => {
-    const typeName = order.prosthesis_type_id ? typeMap.get(order.prosthesis_type_id) ?? null : null;
-    const classified = serviceClassification(order.service_type, typeName);
-    const description = order.service_type || typeName || classified.modality || "Serviço";
-    const refDate = (order.delivered_at ?? order.created_at ?? "").slice(0, 10);
-    return {
-      ...order,
-      ...classified,
-      description,
-      date: formatIsoDate(refDate),
-    };
-  });
-
-  const reportCityIds = reportCities.map((city) => city.id).filter(Boolean);
-  let priceRows: Array<{ city_id: string; service_code: string; unit_price: number | string | null }> = [];
-
-  if (reportCityIds.length > 0) {
-    let priceQuery = supabase
-      .from("city_service_prices")
-      .select("city_id,service_code,unit_price,active")
-      .eq("active", true);
-
-    priceQuery = reportCityIds.length === 1
-      ? priceQuery.eq("city_id", reportCityIds[0])
-      : priceQuery.in("city_id", reportCityIds);
-
-    const { data: prices } = await priceQuery;
-    priceRows = (prices ?? []) as Array<{ city_id: string; service_code: string; unit_price: number | string | null }>;
-  }
-
-  const commonUnitPrice = (serviceCode: "PT" | "PPR") => {
-    if (reportCityIds.length === 0) return null;
-
-    const values = reportCityIds.map((cityId) => {
-      const row = priceRows.find(
-        (price) => price.city_id === cityId && String(price.service_code).toUpperCase() === serviceCode,
-      );
-      return row ? Number(row.unit_price ?? 0) : null;
-    });
-
-    if (values.some((value) => value === null || !Number.isFinite(value))) return null;
-    const numericValues = values as number[];
-    return numericValues.every((value) => value === numericValues[0]) ? numericValues[0] : null;
+  const getUnitPrice = (cityId: string, serviceCode: "PT" | "PPR") => {
+    const row = (priceRows ?? []).find(
+      (price: any) =>
+        price.city_id === cityId &&
+        String(price.service_code ?? "").toUpperCase() === serviceCode,
+    );
+    if (!row) return null;
+    const value = Number(row.unit_price ?? 0);
+    return Number.isFinite(value) ? value : null;
   };
 
-  return {
-    cityLabel: selectedCity ? `${selectedCity.name} / ${selectedCity.uf}` : payload.cityName,
-    ptUnit: commonUnitPrice("PT"),
-    pprUnit: commonUnitPrice("PPR"),
-    orders,
-  };
+  const reports = reportCities
+    .map((city) => ({
+      cityLabel: `${city.name} / ${city.uf}`,
+      ptUnit: getUnitPrice(city.id, "PT"),
+      pprUnit: getUnitPrice(city.id, "PPR"),
+      orders: classifiedOrders.filter((order) => order.city_id === city.id),
+    }))
+    .filter((report) => !allCities || report.orders.length > 0);
+
+  return reports.length ? reports : null;
 }
 
 function formatIsoDate(value: string) {
@@ -307,7 +301,7 @@ function formatIsoDate(value: string) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value || "—";
 }
 
-function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | null) {
+function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[] | null) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const lastY = () => ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 36);
   const sectionTitle = (text: string, y: number) => {
@@ -317,56 +311,53 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
     doc.setFont("helvetica", "normal");
   };
 
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("RELATÓRIO DE ATIVIDADES", 105, 15, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(liveData?.cityLabel ?? payload.cityName, 105, 21, { align: "center" });
-  doc.text(payload.period, 105, 26, { align: "center" });
-  doc.setFontSize(8);
-  doc.text(`Emitido em ${payload.emittedAt}`, 105, 31, { align: "center" });
+  const renderHeader = (cityLabel: string) => {
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE ATIVIDADES", 105, 15, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(cityLabel, 105, 21, { align: "center" });
+    doc.text(payload.period, 105, 26, { align: "center" });
+    doc.setFontSize(8);
+    doc.text(`Emitido em ${payload.emittedAt}`, 105, 31, { align: "center" });
+  };
 
-  // Mantém o quadro de valores contratados no PDF, inclusive no relatório geral. Sincronização GitHub ativa.
-  if (liveData) {
+  const renderLiveReport = (liveData: LiveReportData) => {
+    renderHeader(liveData.cityLabel);
+
     sectionTitle("VALORES CONTRATADOS", 38);
-    const pt = liveData.ptUnit;
-    const ppr = liveData.pprUnit;
     autoTable(doc, {
       startY: 41,
       head: [["MODALIDADE", "VALOR UNITÁRIO"]],
       body: [
-        ["PT - Prótese Total", pt === null ? "—" : brl(pt)],
-        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr)],
+        ["PT - Prótese Total", liveData.ptUnit === null ? "—" : brl(liveData.ptUnit)],
+        ["PPR - Prótese Parcial Removível", liveData.pprUnit === null ? "—" : brl(liveData.pprUnit)],
       ],
       styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
       headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
       columnStyles: { 1: { halign: "right" } },
       theme: "grid",
     });
-  }
 
-  const beneficiaries = liveData
-    ? liveData.orders.map((order) => ({
-        patientName: order.patient_name ?? "—",
-        superior: order.superior,
-        inferior: order.inferior,
-        date: order.date,
-      }))
-    : payload.beneficiaries;
+    const beneficiaries = liveData.orders.map((order) => ({
+      patientName: order.patient_name ?? "—",
+      superior: order.superior,
+      inferior: order.inferior,
+      date: order.date,
+    }));
 
-  let y = liveData ? lastY() + 8 : 38;
-  sectionTitle("BENEFICIÁRIOS", y);
-  autoTable(doc, {
-    startY: y + 3,
-    head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
-    body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
-    styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-    headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-    theme: "grid",
-  });
+    let y = lastY() + 8;
+    sectionTitle("BENEFICIÁRIOS", y);
+    autoTable(doc, {
+      startY: y + 3,
+      head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
+      body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
+      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
+      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
+      theme: "grid",
+    });
 
-  if (liveData) {
     const ptOrders = liveData.orders.filter((order) => order.modality === "PT");
     const pprOrders = liveData.orders.filter((order) => order.modality === "PPR");
     const ptUnits = ptOrders.reduce((sum, order) => sum + order.units, 0);
@@ -459,7 +450,21 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
         if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
       },
     });
-  } else {
+  };
+
+  const renderFallbackReport = () => {
+    renderHeader(payload.cityName);
+
+    sectionTitle("BENEFICIÁRIOS", 38);
+    autoTable(doc, {
+      startY: 41,
+      head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
+      body: payload.beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
+      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
+      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
+      theme: "grid",
+    });
+
     const summaryRows = payload.summaries.map((row) => [
       row.description,
       String(row.quantity).padStart(2, "0"),
@@ -469,7 +474,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
     const valorGlobal = payload.summaries.reduce((sum, row) => sum + row.totalValue, 0);
     summaryRows.push(["VALOR GLOBAL", "", "", brl(valorGlobal)]);
 
-    y = lastY() + 8;
+    const y = lastY() + 8;
     sectionTitle("RESUMO FINANCEIRO", y);
     autoTable(doc, {
       startY: y + 3,
@@ -483,6 +488,15 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
         if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
       },
     });
+  };
+
+  if (liveReports?.length) {
+    liveReports.forEach((report, index) => {
+      if (index > 0) doc.addPage();
+      renderLiveReport(report);
+    });
+  } else {
+    renderFallbackReport();
   }
 
   return doc.output("arraybuffer");
