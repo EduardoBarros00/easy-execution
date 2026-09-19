@@ -304,45 +304,109 @@ function formatIsoDate(value: string) {
 function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[] | null) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
   const pageMargin = 10;
-  const lastY = () => ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 25);
+
+  const COLORS = {
+    navy: [31, 75, 110] as [number, number, number],
+    teal: [46, 125, 138] as [number, number, number],
+    sky: [234, 243, 248] as [number, number, number],
+    skySoft: [246, 250, 252] as [number, number, number],
+    border: [193, 208, 219] as [number, number, number],
+    text: [31, 41, 55] as [number, number, number],
+    muted: [98, 112, 125] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
+    green: [46, 125, 92] as [number, number, number],
+    amber: [166, 112, 32] as [number, number, number],
+    red: [166, 63, 63] as [number, number, number],
+  };
+
+  const lastY = () =>
+    ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 27);
+
+  const setText = (color: [number, number, number]) => doc.setTextColor(...color);
+  const setFill = (color: [number, number, number]) => doc.setFillColor(...color);
+  const setDraw = (color: [number, number, number]) => doc.setDrawColor(...color);
 
   const sectionTitle = (text: string, y: number) => {
-    doc.setFontSize(8.5);
+    setFill(COLORS.sky);
+    doc.roundedRect(pageMargin, y - 4.2, pageWidth - pageMargin * 2, 6.4, 1.2, 1.2, "F");
+    setFill(COLORS.teal);
+    doc.roundedRect(pageMargin, y - 4.2, 2.2, 6.4, 1.1, 1.1, "F");
+
     doc.setFont("helvetica", "bold");
-    doc.text(text, pageMargin, y);
+    doc.setFontSize(8.3);
+    setText(COLORS.navy);
+    doc.text(text, pageMargin + 4.4, y);
     doc.setFont("helvetica", "normal");
+    setText(COLORS.text);
   };
 
   const nextSectionY = (minimumSpace = 24) => {
-    let y = lastY() + 4.5;
-    if (y + minimumSpace > pageHeight - 10) {
+    let y = lastY() + 6;
+    if (y + minimumSpace > pageHeight - 13) {
       doc.addPage();
-      y = 11;
+      y = 13;
     }
     return y;
   };
 
   const renderHeader = (cityLabel: string) => {
+    setFill(COLORS.skySoft);
+    doc.rect(0, 0, pageWidth, 24, "F");
+    setFill(COLORS.teal);
+    doc.rect(0, 0, 3.6, 24, "F");
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("RELATÓRIO DE ATIVIDADES", 105, 11, { align: "center" });
+    doc.setFontSize(13);
+    setText(COLORS.navy);
+    doc.text("RELATÓRIO DE ATIVIDADES", 12, 8.8);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.text(cityLabel, 105, 15.7, { align: "center" });
+    doc.setFontSize(8.7);
+    setText(COLORS.text);
+    doc.text(cityLabel, 12, 14.2);
 
-    doc.setFontSize(7);
-    doc.text(`${payload.period}   •   Emitido em ${payload.emittedAt}`, 105, 20, { align: "center" });
+    doc.setFontSize(6.7);
+    setText(COLORS.muted);
+    doc.text(`${payload.period}   •   Emitido em ${payload.emittedAt}`, 12, 19.2);
+
+    setFill(COLORS.sky);
+    doc.roundedRect(166, 6.2, 34, 8.2, 2.2, 2.2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.7);
+    setText(COLORS.teal);
+    doc.text("ODONTOLOGIA", 183, 11.2, { align: "center" });
+
+    setDraw(COLORS.border);
+    doc.setLineWidth(0.2);
+    doc.line(pageMargin, 24.8, pageWidth - pageMargin, 24.8);
+    setText(COLORS.text);
+  };
+
+  const baseTableStyles = {
+    fontSize: 6.2,
+    cellPadding: 0.9,
+    lineColor: COLORS.border,
+    lineWidth: 0.12,
+    textColor: COLORS.text,
+    valign: "middle" as const,
+  };
+
+  const baseHeadStyles = {
+    fillColor: COLORS.navy,
+    textColor: COLORS.white,
+    fontStyle: "bold" as const,
+    fontSize: 6.25,
   };
 
   const renderLiveReport = (liveData: LiveReportData) => {
     renderHeader(liveData.cityLabel);
 
-    sectionTitle("VALORES CONTRATADOS", 27);
+    sectionTitle("VALORES CONTRATADOS", 31);
     autoTable(doc, {
-      startY: 29.3,
-      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      startY: 34.1,
+      margin: { left: pageMargin, right: pageMargin, bottom: 11 },
       tableWidth: 190,
       head: [["MODALIDADE", "VALOR UNITÁRIO"]],
       body: [
@@ -350,33 +414,29 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         ["PPR - Prótese Parcial Removível", liveData.pprUnit === null ? "—" : brl(liveData.pprUnit)],
       ],
       styles: {
-        fontSize: 7.2,
-        cellPadding: 1.05,
-        lineColor: [115, 115, 115],
-        lineWidth: 0.15,
-        textColor: [0, 0, 0],
-        valign: "middle",
+        ...baseTableStyles,
+        fontSize: 7,
+        cellPadding: 1.2,
       },
       headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 7.1,
+        ...baseHeadStyles,
+        fontSize: 6.8,
       },
+      alternateRowStyles: { fillColor: COLORS.skySoft },
       columnStyles: {
-        0: { cellWidth: 130 },
-        1: { cellWidth: 60, halign: "right" },
+        0: { cellWidth: 132 },
+        1: { cellWidth: 58, halign: "right", fontStyle: "bold", textColor: COLORS.navy },
       },
       theme: "grid",
       pageBreak: "avoid",
       rowPageBreak: "avoid",
     });
 
-    let y = nextSectionY(32);
+    let y = nextSectionY(34);
     sectionTitle("BENEFICIÁRIOS / OS", y);
     autoTable(doc, {
-      startY: y + 2.2,
-      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
+      startY: y + 3.1,
+      margin: { left: pageMargin, right: pageMargin, top: 12, bottom: 11 },
       tableWidth: 190,
       head: [["BENEFICIÁRIO", "OS", "SERVIÇO", "DATA", "STATUS", "VALOR"]],
       body: liveData.orders.map((order) => [
@@ -388,33 +448,38 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         brl(Number(order.price ?? 0)),
       ]),
       styles: {
-        fontSize: 5.9,
-        cellPadding: 0.7,
-        lineColor: [125, 125, 125],
-        lineWidth: 0.12,
-        textColor: [0, 0, 0],
-        valign: "middle",
+        ...baseTableStyles,
+        fontSize: 5.85,
+        cellPadding: 0.78,
         overflow: "linebreak",
       },
       headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
+        ...baseHeadStyles,
         fontSize: 5.9,
       },
-      alternateRowStyles: { fillColor: [249, 249, 249] },
+      alternateRowStyles: { fillColor: COLORS.skySoft },
       columnStyles: {
         0: { cellWidth: 65 },
-        1: { cellWidth: 22 },
+        1: { cellWidth: 21, halign: "center" },
         2: { cellWidth: 39 },
         3: { cellWidth: 23, halign: "center" },
-        4: { cellWidth: 20, halign: "center" },
-        5: { cellWidth: 21, halign: "right" },
+        4: { cellWidth: 21, halign: "center", fontStyle: "bold" },
+        5: { cellWidth: 21, halign: "right", fontStyle: "bold", textColor: COLORS.navy },
       },
       theme: "grid",
       showHead: "everyPage",
       pageBreak: "auto",
       rowPageBreak: "avoid",
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 4) {
+          const status = String(data.cell.raw ?? "").toLowerCase();
+          if (status.includes("entregue")) data.cell.styles.textColor = COLORS.green;
+          else if (status.includes("pronto")) data.cell.styles.textColor = COLORS.teal;
+          else if (status.includes("pendente")) data.cell.styles.textColor = COLORS.amber;
+          else if (status.includes("produção")) data.cell.styles.textColor = COLORS.navy;
+          else if (status.includes("cancelado")) data.cell.styles.textColor = COLORS.red;
+        }
+      },
     });
 
     const ptOrders = liveData.orders.filter((order) => order.modality === "PT");
@@ -431,11 +496,11 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       .filter((order) => ["pending", "in_progress", "ready"].includes(String(order.status ?? "")))
       .reduce((sum, order) => sum + Number(order.price ?? 0), 0);
 
-    y = nextSectionY(34);
+    y = nextSectionY(38);
     sectionTitle("RESUMO ATUAL", y);
     autoTable(doc, {
-      startY: y + 2.2,
-      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      startY: y + 3.1,
+      margin: { left: pageMargin, right: pageMargin, bottom: 11 },
       tableWidth: 190,
       head: [["MODALIDADE", "OS", "PRÓTESES", "VALOR TOTAL"]],
       body: [
@@ -444,36 +509,36 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         ["TOTAL", String(liveData.orders.length), String(ptUnits + pprUnits), brl(allTotal)],
       ],
       styles: {
-        fontSize: 6.9,
-        cellPadding: 0.9,
-        lineColor: [115, 115, 115],
-        lineWidth: 0.13,
-        textColor: [0, 0, 0],
-        valign: "middle",
+        ...baseTableStyles,
+        fontSize: 6.7,
+        cellPadding: 1.05,
       },
       headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 6.8,
+        ...baseHeadStyles,
+        fontSize: 6.55,
       },
+      alternateRowStyles: { fillColor: COLORS.skySoft },
       columnStyles: {
-        0: { cellWidth: 58 },
-        1: { cellWidth: 42, halign: "center" },
+        0: { cellWidth: 62 },
+        1: { cellWidth: 38, halign: "center" },
         2: { cellWidth: 38, halign: "center" },
-        3: { cellWidth: 52, halign: "right" },
+        3: { cellWidth: 52, halign: "right", fontStyle: "bold", textColor: COLORS.navy },
       },
       theme: "grid",
       pageBreak: "avoid",
       rowPageBreak: "avoid",
       didParseCell: (data) => {
-        if (data.row.index === 2) data.cell.styles.fontStyle = "bold";
+        if (data.row.index === 2) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = COLORS.sky;
+          data.cell.styles.textColor = COLORS.navy;
+        }
       },
     });
 
     autoTable(doc, {
-      startY: lastY() + 2,
-      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      startY: lastY() + 2.5,
+      margin: { left: pageMargin, right: pageMargin, bottom: 11 },
       tableWidth: 190,
       body: [[
         "TOTAL A RECEBER",
@@ -485,38 +550,42 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       ]],
       styles: {
         fontSize: 6.7,
-        cellPadding: 0.85,
-        lineColor: [115, 115, 115],
-        lineWidth: 0.13,
-        textColor: [0, 0, 0],
+        cellPadding: 1.3,
+        lineColor: COLORS.border,
+        lineWidth: 0.14,
+        textColor: COLORS.text,
         fontStyle: "bold",
         valign: "middle",
       },
       columnStyles: {
         0: { cellWidth: 35 },
-        1: { cellWidth: 31, halign: "right" },
+        1: { cellWidth: 31, halign: "right", textColor: COLORS.navy },
         2: { cellWidth: 26 },
-        3: { cellWidth: 31, halign: "right" },
+        3: { cellWidth: 31, halign: "right", textColor: COLORS.green },
         4: { cellWidth: 26 },
-        5: { cellWidth: 41, halign: "right" },
+        5: { cellWidth: 41, halign: "right", textColor: COLORS.amber },
       },
       theme: "grid",
       pageBreak: "avoid",
       rowPageBreak: "avoid",
+      didParseCell: (data) => {
+        if ([0, 2, 4].includes(data.column.index)) {
+          data.cell.styles.fillColor = COLORS.sky;
+          data.cell.styles.textColor = COLORS.navy;
+        } else {
+          data.cell.styles.fillColor = COLORS.white;
+        }
+      },
     });
-
-
-
-
   };
 
   const renderFallbackReport = () => {
     renderHeader(payload.cityName);
 
-    sectionTitle("BENEFICIÁRIOS", 27);
+    sectionTitle("BENEFICIÁRIOS", 31);
     autoTable(doc, {
-      startY: 29.3,
-      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
+      startY: 34.1,
+      margin: { left: pageMargin, right: pageMargin, top: 12, bottom: 11 },
       tableWidth: 190,
       head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
       body: payload.beneficiaries.map((row) => [
@@ -526,20 +595,12 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         row.date,
       ]),
       styles: {
-        fontSize: 6.7,
-        cellPadding: 0.8,
-        lineColor: [125, 125, 125],
-        lineWidth: 0.12,
-        textColor: [0, 0, 0],
-        valign: "middle",
+        ...baseTableStyles,
+        fontSize: 6.15,
+        cellPadding: 0.9,
       },
-      headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 6.6,
-      },
-      alternateRowStyles: { fillColor: [249, 249, 249] },
+      headStyles: baseHeadStyles,
+      alternateRowStyles: { fillColor: COLORS.skySoft },
       columnStyles: {
         0: { cellWidth: 115 },
         1: { cellWidth: 23, halign: "center" },
@@ -561,39 +622,36 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
     const valorGlobal = payload.summaries.reduce((sum, row) => sum + row.totalValue, 0);
     summaryRows.push(["VALOR GLOBAL", "", "", brl(valorGlobal)]);
 
-    const y = nextSectionY(32);
+    const y = nextSectionY(34);
     sectionTitle("RESUMO FINANCEIRO", y);
     autoTable(doc, {
-      startY: y + 2.2,
-      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      startY: y + 3.1,
+      margin: { left: pageMargin, right: pageMargin, bottom: 11 },
       tableWidth: 190,
       head: [["DESCRIÇÃO", "QTD", "VLR.UND", "VLR.TOTAL"]],
       body: summaryRows,
       styles: {
-        fontSize: 6.8,
-        cellPadding: 0.9,
-        lineColor: [115, 115, 115],
-        lineWidth: 0.13,
-        textColor: [0, 0, 0],
-        valign: "middle",
+        ...baseTableStyles,
+        fontSize: 6.6,
+        cellPadding: 1,
       },
-      headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 6.7,
-      },
+      headStyles: baseHeadStyles,
+      alternateRowStyles: { fillColor: COLORS.skySoft },
       columnStyles: {
         0: { cellWidth: 92 },
         1: { cellWidth: 18, halign: "center" },
         2: { cellWidth: 38, halign: "right" },
-        3: { cellWidth: 42, halign: "right" },
+        3: { cellWidth: 42, halign: "right", fontStyle: "bold", textColor: COLORS.navy },
       },
       theme: "grid",
       pageBreak: "avoid",
       rowPageBreak: "avoid",
       didParseCell: (data) => {
-        if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
+        if (data.row.index === summaryRows.length - 1) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = COLORS.sky;
+          data.cell.styles.textColor = COLORS.navy;
+        }
       },
     });
   };
@@ -610,13 +668,19 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
   const totalPages = doc.getNumberOfPages();
   for (let page = 1; page <= totalPages; page += 1) {
     doc.setPage(page);
+
+    setDraw(COLORS.border);
+    doc.setLineWidth(0.15);
+    doc.line(pageMargin, 287.5, pageWidth - pageMargin, 287.5);
+
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Página ${page} de ${totalPages}`, 200, 292, { align: "right" });
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(5.8);
+    setText(COLORS.muted);
+    doc.text("Relatório odontológico", pageMargin, 291.5);
+    doc.text(`Página ${page} de ${totalPages}`, pageWidth - pageMargin, 291.5, { align: "right" });
   }
 
+  setText(COLORS.text);
   return doc.output("arraybuffer");
 }
 
