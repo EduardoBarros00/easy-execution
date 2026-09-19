@@ -372,29 +372,24 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       rowPageBreak: "avoid",
     });
 
-    const beneficiaries = liveData.orders.map((order) => ({
-      patientName: order.patient_name ?? "—",
-      superior: order.superior,
-      inferior: order.inferior,
-      date: order.date,
-    }));
-
-    let y = nextSectionY(28);
-    sectionTitle("BENEFICIÁRIOS", y);
+    let y = nextSectionY(32);
+    sectionTitle("BENEFICIÁRIOS / OS", y);
     autoTable(doc, {
       startY: y + 2.2,
       margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
       tableWidth: 190,
-      head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
-      body: beneficiaries.map((row) => [
-        row.patientName.toUpperCase(),
-        row.superior,
-        row.inferior,
-        row.date,
+      head: [["BENEFICIÁRIO", "OS", "SERVIÇO", "DATA", "STATUS", "VALOR"]],
+      body: liveData.orders.map((order) => [
+        (order.patient_name ?? "—").toUpperCase(),
+        order.code ?? "—",
+        canonicalServiceDescription(order),
+        order.date,
+        STATUS_LABEL[String(order.status ?? "")] ?? String(order.status ?? "—"),
+        brl(Number(order.price ?? 0)),
       ]),
       styles: {
-        fontSize: 6.7,
-        cellPadding: 0.8,
+        fontSize: 5.9,
+        cellPadding: 0.7,
         lineColor: [125, 125, 125],
         lineWidth: 0.12,
         textColor: [0, 0, 0],
@@ -405,14 +400,16 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         fillColor: [235, 235, 235],
         textColor: [0, 0, 0],
         fontStyle: "bold",
-        fontSize: 6.6,
+        fontSize: 5.9,
       },
       alternateRowStyles: { fillColor: [249, 249, 249] },
       columnStyles: {
-        0: { cellWidth: 115 },
-        1: { cellWidth: 23, halign: "center" },
-        2: { cellWidth: 23, halign: "center" },
-        3: { cellWidth: 29, halign: "center" },
+        0: { cellWidth: 65 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 39 },
+        3: { cellWidth: 23, halign: "center" },
+        4: { cellWidth: 20, halign: "center" },
+        5: { cellWidth: 21, halign: "right" },
       },
       theme: "grid",
       showHead: "everyPage",
@@ -440,7 +437,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       startY: y + 2.2,
       margin: { left: pageMargin, right: pageMargin, bottom: 10 },
       tableWidth: 190,
-      head: [["MODALIDADE", "PACIENTES / OS", "PRÓTESES", "VALOR TOTAL"]],
+      head: [["MODALIDADE", "OS", "PRÓTESES", "VALOR TOTAL"]],
       body: [
         ["PT", String(ptOrders.length), String(ptUnits), brl(ptTotal)],
         ["PPR", String(pprOrders.length), String(pprUnits), brl(pprTotal)],
@@ -508,48 +505,7 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       rowPageBreak: "avoid",
     });
 
-    y = nextSectionY(30);
-    sectionTitle("RELAÇÃO DAS OS", y);
-    autoTable(doc, {
-      startY: y + 2.2,
-      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
-      tableWidth: 190,
-      head: [["OS", "PACIENTE", "SERVIÇO", "VALOR", "STATUS"]],
-      body: liveData.orders.map((order) => [
-        order.code ?? "—",
-        order.patient_name ?? "—",
-        canonicalServiceDescription(order),
-        brl(Number(order.price ?? 0)),
-        STATUS_LABEL[String(order.status ?? "")] ?? String(order.status ?? "—"),
-      ]),
-      styles: {
-        fontSize: 6.15,
-        cellPadding: 0.75,
-        lineColor: [125, 125, 125],
-        lineWidth: 0.12,
-        textColor: [0, 0, 0],
-        valign: "middle",
-        overflow: "linebreak",
-      },
-      headStyles: {
-        fillColor: [235, 235, 235],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        fontSize: 6.15,
-      },
-      alternateRowStyles: { fillColor: [249, 249, 249] },
-      columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: 63 },
-        2: { cellWidth: 49 },
-        3: { cellWidth: 27, halign: "right" },
-        4: { cellWidth: 27, halign: "center" },
-      },
-      theme: "grid",
-      showHead: "everyPage",
-      pageBreak: "auto",
-      rowPageBreak: "avoid",
-    });
+
 
 
   };
