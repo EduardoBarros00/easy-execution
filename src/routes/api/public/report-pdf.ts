@@ -334,14 +334,14 @@ function buildReportPdf(payload: ReportPdfPayload, liveData: LiveReportData | nu
     const ppr = liveData.pprUnit;
     autoTable(doc, {
       startY: 41,
-      head: [["MODALIDADE", "VALOR UNITÁRIO", "SUPERIOR + INFERIOR"]],
+      head: [["MODALIDADE", "VALOR UNITÁRIO"]],
       body: [
-        ["PT - Prótese Total", pt === null ? "—" : brl(pt), ""],
-        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr), ""],
+        ["PT - Prótese Total", pt === null ? "—" : brl(pt)],
+        ["PPR - Prótese Parcial Removível", ppr === null ? "—" : brl(ppr)],
       ],
       styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
       headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+      columnStyles: { 1: { halign: "right" } },
       theme: "grid",
     });
   }
