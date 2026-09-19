@@ -303,41 +303,73 @@ function formatIsoDate(value: string) {
 
 function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[] | null) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const lastY = () => ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 36);
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageMargin = 10;
+  const lastY = () => ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 25);
+
   const sectionTitle = (text: string, y: number) => {
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
-    doc.text(text, 14, y);
+    doc.text(text, pageMargin, y);
     doc.setFont("helvetica", "normal");
   };
 
+  const nextSectionY = (minimumSpace = 24) => {
+    let y = lastY() + 4.5;
+    if (y + minimumSpace > pageHeight - 10) {
+      doc.addPage();
+      y = 11;
+    }
+    return y;
+  };
+
   const renderHeader = (cityLabel: string) => {
-    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO DE ATIVIDADES", 105, 15, { align: "center" });
+    doc.setFontSize(12);
+    doc.text("RELATÓRIO DE ATIVIDADES", 105, 11, { align: "center" });
+
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(cityLabel, 105, 21, { align: "center" });
-    doc.text(payload.period, 105, 26, { align: "center" });
-    doc.setFontSize(8);
-    doc.text(`Emitido em ${payload.emittedAt}`, 105, 31, { align: "center" });
+    doc.setFontSize(8.5);
+    doc.text(cityLabel, 105, 15.7, { align: "center" });
+
+    doc.setFontSize(7);
+    doc.text(`${payload.period}   •   Emitido em ${payload.emittedAt}`, 105, 20, { align: "center" });
   };
 
   const renderLiveReport = (liveData: LiveReportData) => {
     renderHeader(liveData.cityLabel);
 
-    sectionTitle("VALORES CONTRATADOS", 38);
+    sectionTitle("VALORES CONTRATADOS", 27);
     autoTable(doc, {
-      startY: 41,
+      startY: 29.3,
+      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      tableWidth: 190,
       head: [["MODALIDADE", "VALOR UNITÁRIO"]],
       body: [
         ["PT - Prótese Total", liveData.ptUnit === null ? "—" : brl(liveData.ptUnit)],
         ["PPR - Prótese Parcial Removível", liveData.pprUnit === null ? "—" : brl(liveData.pprUnit)],
       ],
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "right" } },
+      styles: {
+        fontSize: 7.2,
+        cellPadding: 1.05,
+        lineColor: [115, 115, 115],
+        lineWidth: 0.15,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 7.1,
+      },
+      columnStyles: {
+        0: { cellWidth: 130 },
+        1: { cellWidth: 60, halign: "right" },
+      },
       theme: "grid",
+      pageBreak: "avoid",
+      rowPageBreak: "avoid",
     });
 
     const beneficiaries = liveData.orders.map((order) => ({
@@ -347,15 +379,45 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       date: order.date,
     }));
 
-    let y = lastY() + 8;
+    let y = nextSectionY(28);
     sectionTitle("BENEFICIÁRIOS", y);
     autoTable(doc, {
-      startY: y + 3,
+      startY: y + 2.2,
+      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
+      tableWidth: 190,
       head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
-      body: beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
+      body: beneficiaries.map((row) => [
+        row.patientName.toUpperCase(),
+        row.superior,
+        row.inferior,
+        row.date,
+      ]),
+      styles: {
+        fontSize: 6.7,
+        cellPadding: 0.8,
+        lineColor: [125, 125, 125],
+        lineWidth: 0.12,
+        textColor: [0, 0, 0],
+        valign: "middle",
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.6,
+      },
+      alternateRowStyles: { fillColor: [249, 249, 249] },
+      columnStyles: {
+        0: { cellWidth: 115 },
+        1: { cellWidth: 23, halign: "center" },
+        2: { cellWidth: 23, halign: "center" },
+        3: { cellWidth: 29, halign: "center" },
+      },
       theme: "grid",
+      showHead: "everyPage",
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
     });
 
     const ptOrders = liveData.orders.filter((order) => order.modality === "PT");
@@ -372,37 +434,86 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
       .filter((order) => ["pending", "in_progress", "ready"].includes(String(order.status ?? "")))
       .reduce((sum, order) => sum + Number(order.price ?? 0), 0);
 
-    y = lastY() + 8;
+    y = nextSectionY(34);
     sectionTitle("RESUMO ATUAL", y);
     autoTable(doc, {
-      startY: y + 3,
+      startY: y + 2.2,
+      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      tableWidth: 190,
       head: [["MODALIDADE", "PACIENTES / OS", "PRÓTESES", "VALOR TOTAL"]],
       body: [
         ["PT", String(ptOrders.length), String(ptUnits), brl(ptTotal)],
         ["PPR", String(pprOrders.length), String(pprUnits), brl(pprTotal)],
         ["TOTAL", String(liveData.orders.length), String(ptUnits + pprUnits), brl(allTotal)],
       ],
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "right" } },
+      styles: {
+        fontSize: 6.9,
+        cellPadding: 0.9,
+        lineColor: [115, 115, 115],
+        lineWidth: 0.13,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.8,
+      },
+      columnStyles: {
+        0: { cellWidth: 58 },
+        1: { cellWidth: 42, halign: "center" },
+        2: { cellWidth: 38, halign: "center" },
+        3: { cellWidth: 52, halign: "right" },
+      },
       theme: "grid",
+      pageBreak: "avoid",
+      rowPageBreak: "avoid",
       didParseCell: (data) => {
         if (data.row.index === 2) data.cell.styles.fontStyle = "bold";
       },
     });
 
     autoTable(doc, {
-      startY: lastY() + 4,
-      body: [["TOTAL A RECEBER", brl(allTotal), "ENTREGUE", brl(deliveredTotal), "EM ABERTO", brl(openTotal)]],
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" }, 5: { halign: "right" } },
+      startY: lastY() + 2,
+      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      tableWidth: 190,
+      body: [[
+        "TOTAL A RECEBER",
+        brl(allTotal),
+        "ENTREGUE",
+        brl(deliveredTotal),
+        "EM ABERTO",
+        brl(openTotal),
+      ]],
+      styles: {
+        fontSize: 6.7,
+        cellPadding: 0.85,
+        lineColor: [115, 115, 115],
+        lineWidth: 0.13,
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 31, halign: "right" },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 31, halign: "right" },
+        4: { cellWidth: 26 },
+        5: { cellWidth: 41, halign: "right" },
+      },
       theme: "grid",
+      pageBreak: "avoid",
+      rowPageBreak: "avoid",
     });
 
-    y = lastY() + 8;
+    y = nextSectionY(30);
     sectionTitle("RELAÇÃO DAS OS", y);
     autoTable(doc, {
-      startY: y + 3,
+      startY: y + 2.2,
+      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
+      tableWidth: 190,
       head: [["OS", "PACIENTE", "SERVIÇO", "VALOR", "STATUS"]],
       body: liveData.orders.map((order) => [
         order.code ?? "—",
@@ -411,10 +522,33 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
         brl(Number(order.price ?? 0)),
         STATUS_LABEL[String(order.status ?? "")] ?? String(order.status ?? "—"),
       ]),
-      styles: { fontSize: 7, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 0: { cellWidth: 24 }, 3: { halign: "right", cellWidth: 25 }, 4: { cellWidth: 25 } },
+      styles: {
+        fontSize: 6.15,
+        cellPadding: 0.75,
+        lineColor: [125, 125, 125],
+        lineWidth: 0.12,
+        textColor: [0, 0, 0],
+        valign: "middle",
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.15,
+      },
+      alternateRowStyles: { fillColor: [249, 249, 249] },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 63 },
+        2: { cellWidth: 49 },
+        3: { cellWidth: 27, halign: "right" },
+        4: { cellWidth: 27, halign: "center" },
+      },
       theme: "grid",
+      showHead: "everyPage",
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
     });
 
     const groups = new Map<string, { units: number; total: number; unitValue: number | null }>();
@@ -436,16 +570,37 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
     ]);
     summaryRows.push(["VALOR GLOBAL", "", "", brl(allTotal)]);
 
-    y = lastY() + 8;
+    y = nextSectionY(32);
     sectionTitle("RESUMO FINANCEIRO", y);
     autoTable(doc, {
-      startY: y + 3,
+      startY: y + 2.2,
+      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      tableWidth: 190,
       head: [["DESCRIÇÃO", "QTD", "VLR.UND", "VLR.TOTAL"]],
       body: summaryRows,
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
+      styles: {
+        fontSize: 6.8,
+        cellPadding: 0.9,
+        lineColor: [115, 115, 115],
+        lineWidth: 0.13,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.7,
+      },
+      columnStyles: {
+        0: { cellWidth: 92 },
+        1: { cellWidth: 18, halign: "center" },
+        2: { cellWidth: 38, halign: "right" },
+        3: { cellWidth: 42, halign: "right" },
+      },
       theme: "grid",
+      pageBreak: "avoid",
+      rowPageBreak: "avoid",
       didParseCell: (data) => {
         if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
       },
@@ -455,14 +610,43 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
   const renderFallbackReport = () => {
     renderHeader(payload.cityName);
 
-    sectionTitle("BENEFICIÁRIOS", 38);
+    sectionTitle("BENEFICIÁRIOS", 27);
     autoTable(doc, {
-      startY: 41,
+      startY: 29.3,
+      margin: { left: pageMargin, right: pageMargin, top: 10, bottom: 10 },
+      tableWidth: 190,
       head: [["NOME DO BENEFICIÁRIO", "SUPERIOR", "INFERIOR", "DATA"]],
-      body: payload.beneficiaries.map((row) => [row.patientName.toUpperCase(), row.superior, row.inferior, row.date]),
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
+      body: payload.beneficiaries.map((row) => [
+        row.patientName.toUpperCase(),
+        row.superior,
+        row.inferior,
+        row.date,
+      ]),
+      styles: {
+        fontSize: 6.7,
+        cellPadding: 0.8,
+        lineColor: [125, 125, 125],
+        lineWidth: 0.12,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.6,
+      },
+      alternateRowStyles: { fillColor: [249, 249, 249] },
+      columnStyles: {
+        0: { cellWidth: 115 },
+        1: { cellWidth: 23, halign: "center" },
+        2: { cellWidth: 23, halign: "center" },
+        3: { cellWidth: 29, halign: "center" },
+      },
       theme: "grid",
+      showHead: "everyPage",
+      pageBreak: "auto",
+      rowPageBreak: "avoid",
     });
 
     const summaryRows = payload.summaries.map((row) => [
@@ -474,16 +658,37 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
     const valorGlobal = payload.summaries.reduce((sum, row) => sum + row.totalValue, 0);
     summaryRows.push(["VALOR GLOBAL", "", "", brl(valorGlobal)]);
 
-    const y = lastY() + 8;
+    const y = nextSectionY(32);
     sectionTitle("RESUMO FINANCEIRO", y);
     autoTable(doc, {
-      startY: y + 3,
+      startY: y + 2.2,
+      margin: { left: pageMargin, right: pageMargin, bottom: 10 },
+      tableWidth: 190,
       head: [["DESCRIÇÃO", "QTD", "VLR.UND", "VLR.TOTAL"]],
       body: summaryRows,
-      styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-      headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
+      styles: {
+        fontSize: 6.8,
+        cellPadding: 0.9,
+        lineColor: [115, 115, 115],
+        lineWidth: 0.13,
+        textColor: [0, 0, 0],
+        valign: "middle",
+      },
+      headStyles: {
+        fillColor: [235, 235, 235],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        fontSize: 6.7,
+      },
+      columnStyles: {
+        0: { cellWidth: 92 },
+        1: { cellWidth: 18, halign: "center" },
+        2: { cellWidth: 38, halign: "right" },
+        3: { cellWidth: 42, halign: "right" },
+      },
       theme: "grid",
+      pageBreak: "avoid",
+      rowPageBreak: "avoid",
       didParseCell: (data) => {
         if (data.row.index === summaryRows.length - 1) data.cell.styles.fontStyle = "bold";
       },
@@ -497,6 +702,16 @@ function buildReportPdf(payload: ReportPdfPayload, liveReports: LiveReportData[]
     });
   } else {
     renderFallbackReport();
+  }
+
+  const totalPages = doc.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Página ${page} de ${totalPages}`, 200, 292, { align: "right" });
+    doc.setTextColor(0, 0, 0);
   }
 
   return doc.output("arraybuffer");
